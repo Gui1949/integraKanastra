@@ -5,6 +5,16 @@ const format = require("date-fns/format");
 
 const fs = require("fs");
 
+let express = require("express");
+const app = express();
+
+app.use(express.json());
+
+let total = 0;
+let incluidos = 0;
+let erros = 0;
+let log_erros = [];
+
 let base = "http://msp-ironman:8380";
 let base64String;
 let jsonid;
@@ -90,6 +100,8 @@ let filtrar_dados = () => {
         datares = JSON.parse(datares);
         linha = datares.responseBody.rows;
 
+        total = linha.length;
+
         linha.map((li) => {
           integracao(li[0]);
         });
@@ -98,8 +110,6 @@ let filtrar_dados = () => {
 };
 
 let integracao = (nureneg) => {
-  //FIXME: Substituir NURENEG = 20822 PARA AD_FIDIC
-
   fetch(url_consulta, {
     method: "POST",
     headers: {
@@ -380,58 +390,63 @@ let integracao = (nureneg) => {
                 .then((resp) => {
                   console.log(resp);
 
-                  linha.map((unitario) => {
-                    let atualizaParceiro = {
-                      serviceName: "CRUDServiceProvider.saveRecord",
-                      requestBody: {
-                        dataSet: {
-                          rootEntity: "Financeiro",
-                          includePresentationFields: "N",
-                          dataRow: {
-                            localFields: {
-                              AD_FIDIC: {
-                                $: "I",
+                  try {
+                    erros++;
+                    log_erros.push(resp.error);
+                  } catch {
+                    incluidos++;
+
+                    linha.map((unitario) => {
+                      let atualizaParceiro = {
+                        serviceName: "CRUDServiceProvider.saveRecord",
+                        requestBody: {
+                          dataSet: {
+                            rootEntity: "Financeiro",
+                            includePresentationFields: "N",
+                            dataRow: {
+                              localFields: {
+                                AD_FIDIC: {
+                                  $: "I",
+                                },
+                              },
+                              key: {
+                                NUFIN: {
+                                  $: unitario[27],
+                                },
                               },
                             },
-                            key: {
-                              NUFIN: {
-                                $: unitario[27],
+                            entity: {
+                              fieldset: {
+                                list: "NUFIN",
                               },
                             },
                           },
-                          entity: {
-                            fieldset: {
-                              list: "NUFIN",
-                            },
+                        },
+                      };
+
+                      fetch(
+                        base +
+                          "/mge/service.sbr?serviceName=CRUDServiceProvider.saveRecord&outputType=json",
+                        {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "text/xml; charset=utf-8",
+                            Accept: "*/*",
+                            "Accept-Language": "en-GB",
+                            "Accept-Encoding": "gzip, deflate",
+                            Connection: "Keep-alive",
+                            "Content-Length": atualizaParceiro.length,
+                            Cookie: "JSESSIONID=" + jsonid,
                           },
-                        },
-                      },
-                    };
-
-                    // console.log(atualizaParceiro.requestBody);
-
-                    fetch(
-                      base +
-                        "/mge/service.sbr?serviceName=CRUDServiceProvider.saveRecord&outputType=json",
-                      {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "text/xml; charset=utf-8",
-                          Accept: "*/*",
-                          "Accept-Language": "en-GB",
-                          "Accept-Encoding": "gzip, deflate",
-                          Connection: "Keep-alive",
-                          "Content-Length": atualizaParceiro.length,
-                          Cookie: "JSESSIONID=" + jsonid,
-                        },
-                        body: JSON.stringify(atualizaParceiro),
-                      }
-                    )
-                      .then((resp) => resp.text())
-                      .then((resposta) => {
-                        console.log(resposta);
-                      });
-                  });
+                          body: JSON.stringify(atualizaParceiro),
+                        }
+                      )
+                        .then((resp) => resp.text())
+                        .then((resposta) => {
+                          console.log(resposta);
+                        });
+                    });
+                  }
                 });
             })
             .catch((err) => console.error("error:" + err));
@@ -443,3 +458,17 @@ let integracao = (nureneg) => {
 };
 
 login_snk();
+
+app.get("/monitor/kanastra/envio", function (request, response) {
+  response.json({
+    envio: {
+      total: total,
+      incluidos: incluidos,
+      atualizados: 0,
+      erros: erros,
+      log_erros: log_erros,
+    },
+  });
+});
+
+app.listen(process.env.PORT || 40001);
