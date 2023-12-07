@@ -5,6 +5,16 @@ const format = require("date-fns/format");
 
 const fs = require("fs");
 
+let express = require("express");
+const app = express();
+
+app.use(express.json());
+
+let total = 0;
+let incluidos = 0;
+let erros = 0;
+let log_erros = [];
+
 let base = "http://msp-ironman:8380";
 let base64String;
 
@@ -115,6 +125,8 @@ let integracao = (jsonid) => {
         datares = JSON.parse(datares);
         linha = datares.responseBody.rows;
 
+        total = linha.length;
+
         let url_KANASTRA_login =
           "https://hub-sandbox.kanastra.com.br/oauth/token";
 
@@ -179,66 +191,67 @@ let integracao = (jsonid) => {
                 body: JSON.stringify(json_envio),
               };
 
-              //   return console.log(
-              //     json_envio,
-              //     "-----------------------------------------------------------"
-              //   );
-
               fetch(url, options)
                 .then((res) => res.json())
                 .then((json) => {
                   console.log(json);
 
-                  let atualizaParceiro = {
-                    serviceName: "CRUDServiceProvider.saveRecord",
-                    requestBody: {
-                      dataSet: {
-                        rootEntity: "Financeiro",
-                        includePresentationFields: "N",
-                        dataRow: {
-                          localFields: {
-                            AD_FIDIC: {
-                              $: "B",
+                  try {
+                    log_erros.push(json.error);
+                    erros++;
+                  } catch {
+                    incluidos++;
+                    let atualizaParceiro = {
+                      serviceName: "CRUDServiceProvider.saveRecord",
+                      requestBody: {
+                        dataSet: {
+                          rootEntity: "Financeiro",
+                          includePresentationFields: "N",
+                          dataRow: {
+                            localFields: {
+                              AD_FIDIC: {
+                                $: "B",
+                              },
+                            },
+                            key: {
+                              NUFIN: {
+                                $: unico[0],
+                              },
                             },
                           },
-                          key: {
-                            NUFIN: {
-                              $: unico[0],
+                          entity: {
+                            fieldset: {
+                              list: "NUFIN",
                             },
                           },
                         },
-                        entity: {
-                          fieldset: {
-                            list: "NUFIN",
-                          },
+                      },
+                    };
+
+                    // console.log(atualizaParceiro.requestBody);
+
+                    fetch(
+                      base +
+                        "/mge/service.sbr?serviceName=CRUDServiceProvider.saveRecord&outputType=json",
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "text/xml; charset=utf-8",
+                          Accept: "*/*",
+                          "Accept-Language": "en-GB",
+                          "Accept-Encoding": "gzip, deflate",
+                          Connection: "Keep-alive",
+                          "Content-Length": atualizaParceiro.length,
+                          Cookie: "JSESSIONID=" + jsonid,
                         },
-                      },
-                    },
-                  };
-
-                  // console.log(atualizaParceiro.requestBody);
-
-                  fetch(
-                    base +
-                      "/mge/service.sbr?serviceName=CRUDServiceProvider.saveRecord&outputType=json",
-                    {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "text/xml; charset=utf-8",
-                        Accept: "*/*",
-                        "Accept-Language": "en-GB",
-                        "Accept-Encoding": "gzip, deflate",
-                        Connection: "Keep-alive",
-                        "Content-Length": atualizaParceiro.length,
-                        Cookie: "JSESSIONID=" + jsonid,
-                      },
-                      body: JSON.stringify(atualizaParceiro),
-                    }
-                  )
-                    .then((resp) => resp.text())
-                    .then((resposta) => {
-                      console.log(resposta);
-                    });
+                        body: JSON.stringify(atualizaParceiro),
+                      }
+                    )
+                      .then((resp) => resp.text())
+                      .then((resposta) => {
+                        console.log(resposta);
+                      });
+                  }
                 })
                 .catch((err) => console.error("error:" + err));
             });
@@ -253,3 +266,17 @@ let integracao = (jsonid) => {
 };
 
 login_snk();
+
+app.get("/monitor/kanastra/baixa", function (request, response) {
+  response.json({
+    baixa: {
+      total: total,
+      incluidos: incluidos,
+      atualizados: 0,
+      erros: erros,
+      log_erros: log_erros,
+    },
+  });
+});
+
+app.listen(process.env.PORT || 40002);
