@@ -65,6 +65,9 @@ let integracao = (jsonid) => {
     base +
     "/mge/service.sbr?serviceName=DbExplorerSP.executeQuery&mgeSession=" +
     jsonid;
+
+   //FIXME: Alterar essa query para que puxe todos os títulos com status Y
+    
   fetch(url_consulta, {
     method: "POST",
     headers: {
@@ -340,7 +343,9 @@ let integracao = (jsonid) => {
 
                   console.log(response.status, response.statusText);
                   return response.json();
-                  // console.log(JSON.stringify(body));
+                  
+                //   TODO: Alterar o status do AD_FIDIC no Sankhya
+
                 })
                 .then((resp) => {
                   console.log(resp);
