@@ -1,6 +1,10 @@
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
+const format = require("date-fns/format");
+
+const fs = require("fs");
+
 let base = "http://msp-ironman:8380";
 let base64String;
 
@@ -75,8 +79,8 @@ let integracao = (jsonid) => {
   LTRIM(RTRIM(PAR.RAZAOSOCIAL)) AS 'sponsorName', 
   LTRIM(RTRIM(CGC_CPF)) as 'sponsorGovernmentId',
   LTRIM(RTRIM(TIPPESSOA)) as 'sponsorPersonType',  
-  LTRIM(RTRIM(UPPER(CONCAT(ENDE.TIPO, ' ', ENDE.NOMEEND)))) AS 'sponsorAdress',
-  LTRIM(RTRIM(PAR.NUMEND)) as 'sponsorAdressNumber', 
+  LTRIM(RTRIM(UPPER(CONCAT(ENDE.TIPO, ' ', ENDE.NOMEEND)))) AS 'sponsorAddress',
+  LTRIM(RTRIM(PAR.NUMEND)) as 'sponsorAddressNumber', 
   LTRIM(RTRIM(BAI.NOMEBAI)) as 'sponsorNeighborhood', 
   LTRIM(RTRIM(CID.NOMECID)) as 'sponsorCity', 
   LTRIM(RTRIM(UFS.UF)) as 'sponsorState',
@@ -84,9 +88,9 @@ let integracao = (jsonid) => {
   LTRIM(RTRIM(PAR.CEP)) as 'sponsorZipCode', 
   LTRIM(RTRIM(EMP.RAZAOSOCIAL)) as 'sellerName',
   LTRIM(RTRIM(EMP.CGC)) as 'sellerGovernmentId', 
-  'J' AS 'sellerPersonType', 
-  LTRIM(RTRIM(UPPER(CONCAT(ENDE_EMP.TIPO, ' ', ENDE_EMP.NOMEEND)))) AS 'sellerAdress',
-  LTRIM(RTRIM(EMP.NUMEND)) as 'sellerAdressNumber',
+  'LEGAL_PERSON' AS 'sellerPersonType', 
+  LTRIM(RTRIM(UPPER(CONCAT(ENDE_EMP.TIPO, ' ', ENDE_EMP.NOMEEND)))) AS 'sellerAddress',
+  LTRIM(RTRIM(EMP.NUMEND)) as 'sellerAddressNumber',
   LTRIM(RTRIM(BAI_EMP.NOMEBAI)) as 'sellerNeighborhood',
   LTRIM(RTRIM(CID_EMP.NOMECID)) as 'sellerCity',
   LTRIM(RTRIM(UFS_EMP.UF)) as 'sellerState',
@@ -206,72 +210,143 @@ let integracao = (jsonid) => {
 
         let rodar_loop = (base64String) => {
           linha.map((unico, index) => {
+            let date = unico[22];
+            const year = date.slice(4, 8);
+            const mouth = 12;
+            const day = 07;
+
+            const dateFormated = new Date(`${year}-${mouth}-${day}`);
+
             itens.push({
-              assetType: unico[20],
-              files: [
-                {
-                  content: index == 0 ? base64String : "",
-                  category: "nfe_pdf",
-                  name: "danfe.pdf",
-                },
-              ],
-              installments: [
-                {
-                  externalId: unico[27],
-                  amount: unico[25],
-                  dueDate: unico[22],
-                  customFields: {},
-                },
-              ],
+              externalId: unico[27].toString(),
+              amount: unico[25],
+              dueDate: format(dateFormated, "yyyyMMdd"),
+              customFields: {
+                preCalculatedAcquisitionPrice: unico[25] * 0.98,
+              },
             });
           });
 
-          const url =
-            "https://virtserver.swaggerhub.com/Kanastra/tech-hub/1.1.0/api/credit-originators/7969/offers";
-          const body = {
-            sponsorName: linha[0][0],
-            sponsorGovernmentId: linha[0][1],
-            sponsorPersonType: linha[0][2],
-            sponsorAdress: linha[0][3],
-            sponsorAdressNumber: linha[0][4],
-            sponsorNeighborhood: linha[0][5],
-            sponsorCity: linha[0][6],
-            sponsorState: linha[0][7],
-            sponsorCountry: linha[0][8],
-            sponsorZipCode: linha[0][9],
-            sellerName: linha[0][10],
-            sellerGovernmentId: linha[0][11],
-            sellerPersonType: linha[0][12],
-            sellerAdress: linha[0][13],
-            sellerAdressNumber: linha[0][14],
-            sellerNeighborhood: linha[0][15],
-            sellerCity: linha[0][16],
-            sellerState: linha[0][17],
-            sellerCountry: linha[0][18],
-            sellerZipCode: linha[0][19],
-            assetType: linha[0][20],
-            invoiceNumber: linha[0][21],
-            invoiceDate: linha[0][22],
-            invoiceKey: linha[0][23],
-            totalInstallments: linha[0][24],
-            paymentValue: linha[0][28],
-            paymentDate: linha[0][26],
-            coobrigation: false,
-            customFields: {},
-            items: itens,
-          };
+          let url_KANASTRA_login =
+            "https://hub-sandbox.kanastra.com.br/oauth/token";
 
-          fetch(url, {
+          let options = {
             method: "POST",
             headers: {
-              Accept: "application/json",
+              accept: "application/json",
               "Content-Type": "application/json",
             },
-            body: JSON.stringify(body),
-          }).then((response) => {
-            console.log(response.status);
-            console.log(JSON.stringify(body));
-          });
+            body: `{
+                "grant_type":"client_credentials",
+                "client_id":"67652792",
+                "client_secret":"$2y$10$U6KJaIlRZMNQEIJAz1LiG.dyhCmyrvw19D.5SvvgweBX3ZY.kVSo.",
+                "scope": "create-offers"
+            }`,
+          };
+
+          let date = linha[0][22];
+          const year = date.slice(4, 8);
+          const mouth = date.slice(2, 4);
+          const day = date.slice(0, 2);
+
+          const dateFormated = new Date(`${year}-${mouth}-${day}`);
+
+          fetch(url_KANASTRA_login, options)
+            .then((res) => res.json())
+            .then((json) => {
+              const body = {
+                externalId: linha[0][29],
+                sponsorName: linha[0][0],
+                sponsorGovernmentId: linha[0][1],
+                sponsorPersonType:
+                  linha[0][2] == "J" ? "LEGAL_PERSON" : "NATURAL_PERSON",
+                sponsorAddress: linha[0][3],
+                sponsorAddressNumber: linha[0][4],
+                sponsorNeighborhood: linha[0][5],
+                sponsorCity: linha[0][6],
+                sponsorState: linha[0][7],
+                sponsorCountry: linha[0][8],
+                sponsorZipCode: linha[0][9],
+                sellerName: linha[0][10],
+                sellerBank: 341,
+                sellerAgency: 149,
+                sellerAgencyDigit: 1,
+                sellerAccount: 4738,
+                sellerAccountDigit: 47381,
+                sellerGovernmentId: linha[0][11],
+                sellerPersonType: linha[0][12],
+                sellerAddress: linha[0][13],
+                sellerAddressNumber: linha[0][14],
+                sellerNeighborhood: linha[0][15],
+                sellerCity: linha[0][16],
+                sellerState: linha[0][17],
+                sellerCountry: linha[0][18],
+                sellerZipCode: linha[0][19],
+                coobrigation: false,
+                customFields: {},
+                items: [
+                  {
+                    assetType: "NOTA_COMERCIAL",
+                    invoiceNumber: linha[0][21].toString(),
+                    invoiceDate: format(dateFormated, "yyyyMMdd"),
+                    invoiceKey: linha[0][23],
+                    totalInstallments: linha[0][24],
+                    paymentValue: linha[0][28],
+                    // paymentDate: linha[0][26],
+                    paymentDate: "20240101",
+                    files: [
+                      {
+                        content: base64String,
+                        category: "nfe_pdf",
+                        name: "danfe.pdf",
+                      },
+                    ],
+                    installments: itens,
+                  },
+                ],
+              };
+
+              let url_ENVIO =
+                "https://hub-sandbox.kanastra.com.br/api/credit-originators/fidc-medsystem/offers";
+
+              fetch(url_ENVIO, {
+                method: "POST",
+                headers: {
+                  Accept: "application/json",
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${json.access_token}`,
+                },
+                body: JSON.stringify(body),
+              })
+                .then((response) => {
+                  //return console.log(JSON.stringify(body));
+
+                  const str = JSON.stringify(body);
+                  const filename = "input.txt";
+
+                  fs.open(filename, "a", (err, fd) => {
+                    if (err) {
+                      console.log(err.message);
+                    } else {
+                      fs.write(fd, str, (err, bytes) => {
+                        if (err) {
+                          console.log(err.message);
+                        } else {
+                          console.log(bytes + " bytes written");
+                        }
+                      });
+                    }
+                  });
+
+                  console.log(response.status, response.statusText);
+                  return response.json();
+                  // console.log(JSON.stringify(body));
+                })
+                .then((resp) => {
+                  console.log(resp);
+                });
+            })
+            .catch((err) => console.error("error:" + err));
         };
       } catch {
         linha = undefined;
