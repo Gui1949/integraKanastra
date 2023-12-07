@@ -7,6 +7,11 @@ const fs = require("fs");
 
 let base = "http://msp-ironman:8380";
 let base64String;
+let jsonid;
+let url_consulta =
+  base +
+  "/mge/service.sbr?serviceName=DbExplorerSP.executeQuery&mgeSession=" +
+  jsonid;
 
 let login_snk = () => {
   let credentials = {
@@ -54,20 +59,47 @@ let login_snk = () => {
       jsonid = data.slice(find_jsonid_ini, find_jsonid_fi);
       jsonid = jsonid.replace("<jsessionid>", "");
 
-      integracao(jsonid);
+      filtrar_dados();
 
       // Send a JSON response to the client with the jsessionid value
     });
 };
 
-let integracao = (jsonid) => {
-  let url_consulta =
-    base +
-    "/mge/service.sbr?serviceName=DbExplorerSP.executeQuery&mgeSession=" +
-    jsonid;
+let filtrar_dados = () => {
+  fetch(url_consulta, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      Cookie: "JSESSIONID=" + jsonid,
+    },
+    body: JSON.stringify({
+      serviceName: "DbExplorerSP.executeQuery",
+      requestBody: {
+        sql: `
+        SELECT DISTINCT REN.NURENEG FROM TGFREN REN
+        INNER JOIN TGFFIN FIN ON FIN.NUFIN = REN.NUFIN
+        WHERE FIN.AD_FIDIC = 'Y'
+        `,
+      },
+    }),
+  })
+    .then((resp) => resp.text())
+    .then(function (datares) {
+      let linha = "";
+      try {
+        datares = JSON.parse(datares);
+        linha = datares.responseBody.rows;
 
-   //FIXME: Alterar essa query para que puxe todos os títulos com status Y
-    
+        linha.map((li) => {
+          integracao(li[0]);
+        });
+      } catch {}
+    });
+};
+
+let integracao = (nureneg) => {
+  //FIXME: Substituir NURENEG = 20822 PARA AD_FIDIC
+
   fetch(url_consulta, {
     method: "POST",
     headers: {
@@ -104,15 +136,15 @@ let integracao = (jsonid) => {
   FIN.DTNEG as 'invoiceDate',
   (SELECT CHAVENFE FROM TGFCAB WHERE NUNOTA = (SELECT NUNOTA FROM TGFFIN WHERE NUFIN = (SELECT NUFIN FROM TGFREN
   WHERE 
-  NURENEG = 20822))) AS 'invoiceKey',
-  (SELECT COUNT(*) FROM TGFFIN WHERE NURENEG = 20822 AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'totalInstallments',
+  NURENEG = ${nureneg}))) AS 'invoiceKey',
+  (SELECT COUNT(*) FROM TGFFIN WHERE NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'totalInstallments',
   FIN.VLRDESDOB AS 'paymentValue',
   FIN.DTNEG AS 'paymentDate',
   FIN.NUFIN,
-  (SELECT SUM(VLRDESDOB) FROM TGFFIN WHERE NURENEG = 20822 AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'valorTotal',
+  (SELECT SUM(VLRDESDOB) FROM TGFFIN WHERE NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'valorTotal',
   (SELECT NUNOTA FROM TGFCAB WHERE NUNOTA = (SELECT NUNOTA FROM TGFFIN WHERE NUFIN = (SELECT NUFIN FROM TGFREN
     WHERE 
-    NURENEG = 20822))) AS 'NUNOTA'
+    NURENEG = ${nureneg}))) AS 'NUNOTA'
   
   FROM TGFFIN FIN
   LEFT JOIN TGFPAR PAR ON PAR.CODPARC = FIN.CODPARC
@@ -130,7 +162,7 @@ let integracao = (jsonid) => {
   LEFT JOIN TSIPAI PAI_EMP ON PAI_EMP.CODPAIS = UFS_EMP.CODPAIS
   
   WHERE 
-  NURENEG = 20822 AND PARCRENEG IS NOT NULL AND RECDESP = 1
+  NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1
         `,
       },
     }),
@@ -324,31 +356,82 @@ let integracao = (jsonid) => {
                 .then((response) => {
                   //return console.log(JSON.stringify(body));
 
-                  const str = JSON.stringify(body);
-                  const filename = "input.txt";
+                  // const str = JSON.stringify(body);
+                  // const filename = "input.txt";
 
-                  fs.open(filename, "a", (err, fd) => {
-                    if (err) {
-                      console.log(err.message);
-                    } else {
-                      fs.write(fd, str, (err, bytes) => {
-                        if (err) {
-                          console.log(err.message);
-                        } else {
-                          console.log(bytes + " bytes written");
-                        }
-                      });
-                    }
-                  });
+                  // fs.open(filename, "a", (err, fd) => {
+                  //   if (err) {
+                  //     console.log(err.message);
+                  //   } else {
+                  //     fs.write(fd, str, (err, bytes) => {
+                  //       if (err) {
+                  //         console.log(err.message);
+                  //       } else {
+                  //         console.log(bytes + " bytes written");
+                  //       }
+                  //     });
+                  //   }
+                  // });
 
                   console.log(response.status, response.statusText);
-                  return response.json();
-                  
-                //   TODO: Alterar o status do AD_FIDIC no Sankhya
 
+                  return response.json();
                 })
                 .then((resp) => {
                   console.log(resp);
+
+                  linha.map((unitario) => {
+                    let atualizaParceiro = {
+                      serviceName: "CRUDServiceProvider.saveRecord",
+                      requestBody: {
+                        dataSet: {
+                          rootEntity: "Financeiro",
+                          includePresentationFields: "N",
+                          dataRow: {
+                            localFields: {
+                              AD_FIDIC: {
+                                $: "I",
+                              },
+                            },
+                            key: {
+                              NUFIN: {
+                                $: unitario[27],
+                              },
+                            },
+                          },
+                          entity: {
+                            fieldset: {
+                              list: "NUFIN",
+                            },
+                          },
+                        },
+                      },
+                    };
+
+                    // console.log(atualizaParceiro.requestBody);
+
+                    fetch(
+                      base +
+                        "/mge/service.sbr?serviceName=CRUDServiceProvider.saveRecord&outputType=json",
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "text/xml; charset=utf-8",
+                          Accept: "*/*",
+                          "Accept-Language": "en-GB",
+                          "Accept-Encoding": "gzip, deflate",
+                          Connection: "Keep-alive",
+                          "Content-Length": atualizaParceiro.length,
+                          Cookie: "JSESSIONID=" + jsonid,
+                        },
+                        body: JSON.stringify(atualizaParceiro),
+                      }
+                    )
+                      .then((resp) => resp.text())
+                      .then((resposta) => {
+                        console.log(resposta);
+                      });
+                  });
                 });
             })
             .catch((err) => console.error("error:" + err));
