@@ -1,33 +1,45 @@
-const ftp = require("ftp");
+let criaRegistro = {
+  serviceName: "CRUDServiceProvider.saveRecord",
+  requestBody: {
+    dataSet: {
+      rootEntity: "AD_CANHOTOFTP",
+      includePresentationFields: "N",
+      dataRow: {
+        localFields: {
+          CONTEUDO: {
+            $: "BASE64",
+          },
+        }
+      },
+      entity: {
+        fieldset: {
+          list: "ID",
+        },
+      },
+    },
+  },
+};
 
-const host = "speedtest.tele2.net";
-const username = "";
-const password = "";
-const filename = "5MB.zip";
-const localPath = "./downloads";
+// console.log(atualizaParceiro.requestBody);
 
- const client = new ftp()
- client.connect(host, function(err) {
-    return null
-  if (err) {
-    console.log(err);
-    return;
+fetch(
+  base +
+    "/mge/service.sbr?serviceName=CRUDServiceProvider.saveRecord&outputType=json",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/xml; charset=utf-8",
+      Accept: "*/*",
+      "Accept-Language": "en-GB",
+      "Accept-Encoding": "gzip, deflate",
+      Connection: "Keep-alive",
+      "Content-Length": criaRegistro.length,
+      Cookie: "JSESSIONID=" + jsonid,
+    },
+    body: JSON.stringify(criaRegistro),
   }
-
-  client.login(username, password, function(err) {
-    if (err) {
-      console.log(err);
-      return;
-    }
-
-    client.get(filename, localPath, function(err) {
-      if (err) {
-        console.log(err);
-        return;
-      }
-
-      console.log("Arquivo baixado com sucesso!");
-      client.end();
-    });
+)
+  .then((resp) => resp.text())
+  .then((resposta) => {
+    console.log(resposta);
   });
-});
