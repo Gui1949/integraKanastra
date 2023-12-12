@@ -88,7 +88,7 @@ let filtrar_dados = () => {
         sql: `
         SELECT DISTINCT REN.NURENEG FROM TGFREN REN
         INNER JOIN TGFFIN FIN ON FIN.NUFIN = REN.NUFIN
-        WHERE FIN.AD_FIDIC = 'Y'
+        WHERE FIN.AD_FIDIC = 'Y' AND CODEMP = 510
         `,
       },
     }),
@@ -144,17 +144,14 @@ let integracao = (nureneg) => {
   FIN.PARCRENEG as 'assetType',
   FIN.NUMNOTA as 'invoiceNumber',
   FIN.DTNEG as 'invoiceDate',
-  (SELECT CHAVENFE FROM TGFCAB WHERE NUNOTA = (SELECT NUNOTA FROM TGFFIN WHERE NUFIN = (SELECT NUFIN FROM TGFREN
-  WHERE 
-  NURENEG = ${nureneg}))) AS 'invoiceKey',
+  (SELECT CHAVENFE FROM TGFCAB WHERE NUNOTA = (SELECT AD_NUNOTAFDIC FROM TGFFIN FIN INNER JOIN TGFREN REN ON REN.NUFIN = FIN.NUFIN WHERE REN.NURENEG = ${nureneg})) AS 'invoiceKey',
   (SELECT COUNT(*) FROM TGFFIN WHERE NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'totalInstallments',
   FIN.VLRDESDOB AS 'paymentValue',
   FIN.DTNEG AS 'paymentDate',
   FIN.NUFIN,
   (SELECT SUM(VLRDESDOB) FROM TGFFIN WHERE NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'valorTotal',
-  (SELECT NUNOTA FROM TGFCAB WHERE NUNOTA = (SELECT NUNOTA FROM TGFFIN WHERE NUFIN = (SELECT NUFIN FROM TGFREN
-    WHERE 
-    NURENEG = ${nureneg}))) AS 'NUNOTA'
+  AD_NUNOTAFDIC AS 'NUNOTA',
+  AD_SKUFIDIC
   
   FROM TGFFIN FIN
   LEFT JOIN TGFPAR PAR ON PAR.CODPARC = FIN.CODPARC
@@ -173,6 +170,7 @@ let integracao = (nureneg) => {
   
   WHERE 
   NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1
+  AND FIN.CODEMP = 510
         `,
       },
     }),
@@ -183,8 +181,6 @@ let integracao = (nureneg) => {
       try {
         datares = JSON.parse(datares);
         linha = datares.responseBody.rows;
-
-        // console.log(linha);
 
         let itens = [];
 
@@ -258,17 +254,15 @@ let integracao = (nureneg) => {
             let date = unico[22];
             const year = date.slice(4, 8);
             const mouth = 12;
-            const day = 07;
+            const day = 25;
 
             const dateFormated = new Date(`${year}-${mouth}-${day}`);
 
             itens.push({
-              externalId: unico[27].toString(),
+              externalId: unico[27].toString() + 900,
               amount: unico[25],
               dueDate: format(dateFormated, "yyyyMMdd"),
-              customFields: {
-                preCalculatedAcquisitionPrice: unico[25] * 0.98,
-              },
+              customFields: {},
             });
           });
 
@@ -300,7 +294,7 @@ let integracao = (nureneg) => {
             .then((res) => res.json())
             .then((json) => {
               const body = {
-                externalId: linha[0][29],
+                externalId: linha[0][29] + 900,
                 sponsorName: linha[0][0],
                 sponsorGovernmentId: linha[0][1],
                 sponsorPersonType:
@@ -328,7 +322,6 @@ let integracao = (nureneg) => {
                 sellerCountry: linha[0][18],
                 sellerZipCode: linha[0][19],
                 coobrigation: false,
-                customFields: {},
                 items: [
                   {
                     assetType: "NOTA_COMERCIAL",
@@ -338,6 +331,10 @@ let integracao = (nureneg) => {
                     totalInstallments: linha[0][24],
                     paymentValue: linha[0][28],
                     // paymentDate: linha[0][26],
+                    customFields: {
+                      preCalculatedAcquisitionPrice: linha[0][25] * 0.98,
+                      rateType: "PRE",
+                    },
                     paymentDate: "20240101",
                     files: [
                       {
@@ -390,10 +387,10 @@ let integracao = (nureneg) => {
                 .then((resp) => {
                   console.log(resp);
 
-                  try {
-                    erros++;
+                  if (resp.error) {
                     log_erros.push(resp.error);
-                  } catch {
+                    erros++;
+                  } else {
                     incluidos++;
 
                     linha.map((unitario) => {
@@ -408,6 +405,12 @@ let integracao = (nureneg) => {
                                 AD_FIDIC: {
                                   $: "I",
                                 },
+                                AD_SKUFIDIC: {
+                                  $: resp.external_id,
+                                },
+                                AD_OFFER_ID: {
+                                  $: resp.id,
+                                },
                               },
                               key: {
                                 NUFIN: {
@@ -417,7 +420,7 @@ let integracao = (nureneg) => {
                             },
                             entity: {
                               fieldset: {
-                                list: "NUFIN",
+                                list: "NUFIN, AD_FIDIC, AD_SKUFIDIC",
                               },
                             },
                           },

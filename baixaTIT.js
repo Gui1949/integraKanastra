@@ -87,13 +87,13 @@ let integracao = (jsonid) => {
       requestBody: {
         sql: `
         SELECT 
-        NUFIN AS 'externalId',
+        FIN.NUFIN AS 'externalId',
         
         --payment
         
         VLRBAIXA AS 'amount',
         FORMAT(DHBAIXA,'yyyyMMdd') AS 'date',
-        TIT.DESCRTIPTIT as 'method',
+        'BOLETO' as 'method',
         CONCAT(LTRIM(RTRIM(TIT.DESCRTIPTIT)), ' ', FIN.NUFIN) as 'reference',
         NULL AS 'authentication',
         
@@ -191,15 +191,32 @@ let integracao = (jsonid) => {
                 body: JSON.stringify(json_envio),
               };
 
+              // const str = JSON.stringify(body);
+              // const filename = "input.txt";
+
+              // fs.open(filename, "a", (err, fd) => {
+              //   if (err) {
+              //     console.log(err.message);
+              //   } else {
+              //     fs.write(fd, str, (err, bytes) => {
+              //       if (err) {
+              //         console.log(err.message);
+              //       } else {
+              //         console.log(bytes + " bytes written");
+              //       }
+              //     });
+              //   }
+              // });
+
               fetch(url, options)
                 .then((res) => res.json())
                 .then((json) => {
                   console.log(json);
 
-                  try {
+                  if (json.error) {
                     log_erros.push(json.error);
                     erros++;
-                  } catch {
+                  } else {
                     incluidos++;
                     let atualizaParceiro = {
                       serviceName: "CRUDServiceProvider.saveRecord",
@@ -227,8 +244,6 @@ let integracao = (jsonid) => {
                         },
                       },
                     };
-
-                    // console.log(atualizaParceiro.requestBody);
 
                     fetch(
                       base +
