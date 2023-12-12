@@ -86,9 +86,11 @@ let filtrar_dados = () => {
       serviceName: "DbExplorerSP.executeQuery",
       requestBody: {
         sql: `
-        SELECT DISTINCT REN.NURENEG FROM TGFREN REN
-        INNER JOIN TGFFIN FIN ON FIN.NUFIN = REN.NUFIN
-        WHERE FIN.AD_FIDIC = 'Y'
+        SELECT FIN.NURENEG FROM AD_CANHOTOFTP FTP
+        LEFT JOIN TGFCAB CAB ON CAB.CHAVENFE = FTP.CHAVENFE
+        LEFT JOIN TGFFIN FIN ON CAB.NUNOTA = FIN.AD_NUNOTAFDIC
+        LEFT JOIN AD_WEBHOOKFIDIC FID ON FID.EXTERNAL_ID = FIN.NUFIN
+        WHERE FIN.CODEMP = 510 AND FIN.AD_FIDIC = 'I'
         `,
       },
     }),
@@ -120,60 +122,61 @@ let integracao = (nureneg) => {
       serviceName: "DbExplorerSP.executeQuery",
       requestBody: {
         sql: `
-        SELECT 
-  LTRIM(RTRIM(PAR.RAZAOSOCIAL)) AS 'sponsorName', 
-  LTRIM(RTRIM(CGC_CPF)) as 'sponsorGovernmentId',
-  LTRIM(RTRIM(TIPPESSOA)) as 'sponsorPersonType',  
-  LTRIM(RTRIM(UPPER(CONCAT(ENDE.TIPO, ' ', ENDE.NOMEEND)))) AS 'sponsorAddress',
-  LTRIM(RTRIM(PAR.NUMEND)) as 'sponsorAddressNumber', 
-  LTRIM(RTRIM(BAI.NOMEBAI)) as 'sponsorNeighborhood', 
-  LTRIM(RTRIM(CID.NOMECID)) as 'sponsorCity', 
-  LTRIM(RTRIM(UFS.UF)) as 'sponsorState',
-  LTRIM(RTRIM(PAI.DESCRICAO)) as 'sponsorCountry',
-  LTRIM(RTRIM(PAR.CEP)) as 'sponsorZipCode', 
-  LTRIM(RTRIM(EMP.RAZAOSOCIAL)) as 'sellerName',
-  LTRIM(RTRIM(EMP.CGC)) as 'sellerGovernmentId', 
-  'LEGAL_PERSON' AS 'sellerPersonType', 
-  LTRIM(RTRIM(UPPER(CONCAT(ENDE_EMP.TIPO, ' ', ENDE_EMP.NOMEEND)))) AS 'sellerAddress',
-  LTRIM(RTRIM(EMP.NUMEND)) as 'sellerAddressNumber',
-  LTRIM(RTRIM(BAI_EMP.NOMEBAI)) as 'sellerNeighborhood',
-  LTRIM(RTRIM(CID_EMP.NOMECID)) as 'sellerCity',
-  LTRIM(RTRIM(UFS_EMP.UF)) as 'sellerState',
-  LTRIM(RTRIM(PAI_EMP.DESCRICAO)) as 'sellerCountry', 
-  LTRIM(RTRIM(EMP.CEP)) as 'sellerZipCode',
-  FIN.PARCRENEG as 'assetType',
-  FIN.NUMNOTA as 'invoiceNumber',
-  FIN.DTNEG as 'invoiceDate',
-  (SELECT CHAVENFE FROM TGFCAB WHERE NUNOTA = (SELECT NUNOTA FROM TGFFIN WHERE NUFIN = (SELECT NUFIN FROM TGFREN
-  WHERE 
-  NURENEG = ${nureneg}))) AS 'invoiceKey',
-  (SELECT COUNT(*) FROM TGFFIN WHERE NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'totalInstallments',
-  FIN.VLRDESDOB AS 'paymentValue',
-  FIN.DTNEG AS 'paymentDate',
-  FIN.NUFIN,
-  (SELECT SUM(VLRDESDOB) FROM TGFFIN WHERE NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'valorTotal',
-  (SELECT NUNOTA FROM TGFCAB WHERE NUNOTA = (SELECT NUNOTA FROM TGFFIN WHERE NUFIN = (SELECT NUFIN FROM TGFREN
-    WHERE 
-    NURENEG = ${nureneg}))) AS 'NUNOTA'
-  
-  FROM TGFFIN FIN
-  LEFT JOIN TGFPAR PAR ON PAR.CODPARC = FIN.CODPARC
-  LEFT JOIN TSIEND ENDE ON ENDE.CODEND = PAR.CODEND
-  LEFT JOIN TSIBAI BAI ON BAI.CODBAI = PAR.CODBAI
-  LEFT JOIN TSICID CID ON CID.CODCID = PAR.CODCID
-  LEFT JOIN TSIUFS UFS ON UFS.CODUF = CID.UF
-  LEFT JOIN TSIPAI PAI ON PAI.CODPAIS = UFS.CODPAIS
-  LEFT JOIN TSIEMP EMP ON EMP.CODEMP = FIN.CODEMP
-  
-  LEFT JOIN TSIEND ENDE_EMP ON ENDE_EMP.CODEND = EMP.CODEND
-  LEFT JOIN TSIBAI BAI_EMP ON BAI_EMP.CODBAI = EMP.CODBAI
-  LEFT JOIN TSICID CID_EMP ON CID_EMP.CODCID = EMP.CODCID
-  LEFT JOIN TSIUFS UFS_EMP ON UFS_EMP.CODUF = CID_EMP.UF
-  LEFT JOIN TSIPAI PAI_EMP ON PAI_EMP.CODPAIS = UFS_EMP.CODPAIS
-  
-  WHERE 
-  NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1
-        `,
+        SELECT
+        LTRIM(RTRIM(PAR.RAZAOSOCIAL)) AS 'sponsorName',
+        LTRIM(RTRIM(CGC_CPF)) as 'sponsorGovernmentId',
+        LTRIM(RTRIM(TIPPESSOA)) as 'sponsorPersonType',  
+        LTRIM(RTRIM(UPPER(CONCAT(ENDE.TIPO, ' ', ENDE.NOMEEND)))) AS 'sponsorAddress',
+        LTRIM(RTRIM(PAR.NUMEND)) as 'sponsorAddressNumber',
+        LTRIM(RTRIM(BAI.NOMEBAI)) as 'sponsorNeighborhood',
+        LTRIM(RTRIM(CID.NOMECID)) as 'sponsorCity',
+        LTRIM(RTRIM(UFS.UF)) as 'sponsorState',
+        LTRIM(RTRIM(PAI.DESCRICAO)) as 'sponsorCountry',
+        LTRIM(RTRIM(PAR.CEP)) as 'sponsorZipCode',
+        LTRIM(RTRIM(EMP.RAZAOSOCIAL)) as 'sellerName',
+        LTRIM(RTRIM(EMP.CGC)) as 'sellerGovernmentId',
+        'LEGAL_PERSON' AS 'sellerPersonType',
+        LTRIM(RTRIM(UPPER(CONCAT(ENDE_EMP.TIPO, ' ', ENDE_EMP.NOMEEND)))) AS 'sellerAddress',
+        LTRIM(RTRIM(EMP.NUMEND)) as 'sellerAddressNumber',
+        LTRIM(RTRIM(BAI_EMP.NOMEBAI)) as 'sellerNeighborhood',
+        LTRIM(RTRIM(CID_EMP.NOMECID)) as 'sellerCity',
+        LTRIM(RTRIM(UFS_EMP.UF)) as 'sellerState',
+        LTRIM(RTRIM(PAI_EMP.DESCRICAO)) as 'sellerCountry',
+        LTRIM(RTRIM(EMP.CEP)) as 'sellerZipCode',
+        FIN.PARCRENEG as 'assetType',
+        FIN.NUMNOTA as 'invoiceNumber',
+        FIN.DTNEG as 'invoiceDate',
+        ISNULL((SELECT CHAVENFE FROM TGFCAB WHERE NUNOTA = (SELECT NUNOTA FROM TGFFIN WHERE NUFIN = (SELECT NUFIN FROM TGFREN
+        WHERE
+        NURENEG = ${nureneg}))),(SELECT CHAVENFE FROM TGFCAB WHERE NUNOTA = (SELECT AD_NUNOTAFDIC FROM TGFFIN FIN INNER JOIN TGFREN REN ON REN.NUFIN = FIN.NUFIN WHERE REN.NURENEG = ${nureneg}))) AS 'invoiceKey',
+        (SELECT COUNT(*) FROM TGFFIN WHERE NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'totalInstallments',
+        FIN.VLRDESDOB AS 'paymentValue',
+        FIN.DTNEG AS 'paymentDate',
+        FIN.NUFIN,
+        (SELECT SUM(VLRDESDOB) FROM TGFFIN WHERE NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'valorTotal',
+        ISNULL((SELECT NUNOTA FROM TGFCAB WHERE NUNOTA = (SELECT NUNOTA FROM TGFFIN WHERE NUFIN = (SELECT NUFIN FROM TGFREN
+          WHERE
+          NURENEG = ${nureneg}))), AD_NUNOTAFDIC) AS 'NUNOTA', FIN.AD_OFFER_ID 
+       
+        FROM TGFFIN FIN
+        LEFT JOIN TGFPAR PAR ON PAR.CODPARC = FIN.CODPARC
+        LEFT JOIN TSIEND ENDE ON ENDE.CODEND = PAR.CODEND
+        LEFT JOIN TSIBAI BAI ON BAI.CODBAI = PAR.CODBAI
+        LEFT JOIN TSICID CID ON CID.CODCID = PAR.CODCID
+        LEFT JOIN TSIUFS UFS ON UFS.CODUF = CID.UF
+        LEFT JOIN TSIPAI PAI ON PAI.CODPAIS = UFS.CODPAIS
+        LEFT JOIN TSIEMP EMP ON EMP.CODEMP = FIN.CODEMP
+       
+        LEFT JOIN TSIEND ENDE_EMP ON ENDE_EMP.CODEND = EMP.CODEND
+        LEFT JOIN TSIBAI BAI_EMP ON BAI_EMP.CODBAI = EMP.CODBAI
+        LEFT JOIN TSICID CID_EMP ON CID_EMP.CODCID = EMP.CODCID
+        LEFT JOIN TSIUFS UFS_EMP ON UFS_EMP.CODUF = CID_EMP.UF
+        LEFT JOIN TSIPAI PAI_EMP ON PAI_EMP.CODPAIS = UFS_EMP.CODPAIS
+       
+        WHERE
+        NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1
+        AND FIN.CODEMP = 510
+       `,
       },
     }),
   })
@@ -258,7 +261,7 @@ let integracao = (nureneg) => {
             let date = unico[22];
             const year = date.slice(4, 8);
             const mouth = 12;
-            const day = 08;
+            const day = 13;
 
             const dateFormated = new Date(`${year}-${mouth}-${day}`);
 
@@ -300,78 +303,64 @@ let integracao = (nureneg) => {
             .then((res) => res.json())
             .then((json) => {
               const body = {
-                "externalId": "myOwnId123",
-                "sponsorName": "Offer Sponsor",
-                "sponsorPersonType": "LEGAL_PERSON",
-                "sponsorGovernmentId": "19369866000100",
-                "sponsorExternalCode": "myOwnSponsorExternalCode",
-                "sponsorAddress": "ROD. SP 080 KM 69",
-                "sponsorAddressNumber": "N/A",
-                "sponsorAddressComplement": "Fazenda da roça",
-                "sponsorNeighborhood": "Zona Rural",
-                "sponsorCity": "São Paulo",
-                "sponsorState": "SP",
-                "sponsorCountry": "Brasil",
-                "sponsorZipCode": "26380-000",
-                "sponsorBank": "341",
-                "sponsorAgency": "1234",
-                "sponsorAgencyDigit": "0",
-                "sponsorAccount": "98765",
-                "sponsorAccountDigit": "0",
-                "sponsorPixKey": "12345678901",
-                "sellerName": "Offer Seller",
-                "sellerPersonType": "LEGAL_PERSON",
-                "sellerGovernmentId": "78659066000185",
-                "sellerExternalCode": "myOwnSellerExternalCode123",
-                "sellerAddress": "Av. Vinhedos",
-                "sellerAddressNumber": "71",
-                "sellerAddressComplement": "Torre Sul",
-                "sellerNeighborhood": "Jardim das Acacias",
-                "sellerCity": "Uberlandia",
-                "sellerState": "MG",
-                "sellerCountry": "Brasil",
-                "sellerZipCode": "26380-000",
-                "sellerBank": "341",
-                "sellerAgency": "1234",
-                "sellerAgencyDigit": "0",
-                "sellerAccount": "98765",
-                "sellerAccountDigit": "0",
-                "coobrigation": false,
-                "customFields": {},
-                "items": [
+                externalId: linha[0][29] + 900,
+                sponsorName: linha[0][0],
+                sponsorGovernmentId: linha[0][1],
+                sponsorPersonType:
+                  linha[0][2] == "J" ? "LEGAL_PERSON" : "NATURAL_PERSON",
+                sponsorAddress: linha[0][3],
+                sponsorAddressNumber: linha[0][4],
+                sponsorNeighborhood: linha[0][5],
+                sponsorCity: linha[0][6],
+                sponsorState: linha[0][7],
+                sponsorCountry: linha[0][8],
+                sponsorZipCode: linha[0][9],
+                sellerName: linha[0][10],
+                sellerBank: 341,
+                sellerAgency: 149,
+                sellerAgencyDigit: 1,
+                sellerAccount: 4738,
+                sellerAccountDigit: 47381,
+                sellerGovernmentId: linha[0][11],
+                sellerPersonType: linha[0][12],
+                sellerAddress: linha[0][13],
+                sellerAddressNumber: linha[0][14],
+                sellerNeighborhood: linha[0][15],
+                sellerCity: linha[0][16],
+                sellerState: linha[0][17],
+                sellerCountry: linha[0][18],
+                sellerZipCode: linha[0][19],
+                coobrigation: false,
+                customFields: {},
+                items: [
                   {
-                    "assetType": "DUPLICATA_MERCANTIL",
-                    "invoiceNumber": "000012",
-                    "invoiceDate": "20220101",
-                    "invoiceKey": "128391284917238917209381284190",
-                    "totalInstallments": 1,
-                    "paymentValue": 2000,
-                    "paymentDate": "20301231",
-                    "customFields": {},
-                    "files": [
+                    customFields: {
+                      preCalculatedAcquisitionPrice: linha[0][28],
+                      rateType: "PRE",
+                    },
+                    assetType: "NOTA_COMERCIAL",
+                    invoiceNumber: linha[0][21].toString(),
+                    invoiceDate: format(dateFormated, "yyyyMMdd"),
+                    invoiceKey: linha[0][23],
+                    totalInstallments: linha[0][24],
+                    paymentValue: linha[0][28],
+                    // paymentDate: linha[0][26],
+                    paymentDate: "20240101",
+                    files: [
                       {
-                        "url": "https://www.kanastra.com.br/images/default/sample.pdf",
-                        "content": "",
-                        "category": "nfe_pdf",
-                        "name": "exampleCoverageFile.pdf"
-                      }
+                        content: base64String,
+                        category: "nfe_pdf",
+                        name: "danfe.pdf",
+                      },
                     ],
-                    "installments": [
-                      {
-                        "externalId": "externalId_01",
-                        "amount": 2000,
-                        "dueDate": "20301231",
-                        "customFields": {}
-                      }
-                    ]
-                  }
-                ]
-              }
+                    installments: itens,
+                  },
+                ],
+              };
 
-              const offerId = "myOwnOfferId123";
+              const offerId = linha[0][linha[0].length - 1];
 
-              let url_ENVIO =
-                `https://hub-sandbox.kanastra.com.br/api/credit-originators/fidc-medsystem/offers/${offerId}`;
+              let url_ENVIO = `https://hub-sandbox.kanastra.com.br/api/credit-originators/fidc-medsystem/offers/${offerId}`;
 
               fetch(url_ENVIO, {
                 method: "PUT",

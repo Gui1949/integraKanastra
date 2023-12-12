@@ -1,37 +1,38 @@
 const fs = require("fs");
 const path = require("path");
-const Client = require("ssh2-sftp-client");
+const ftp = require('basic-ftp');
 
 async function downloadFiles() {
-  const sftp = new Client();
+  const client = new ftp.Client();
 
   try {
-    const config = {
-      host: "msp-thanos",
-      port: "22", // Usually 22 for SFTP
-      username: "desenvolvimento",
-      privateKey: fs.readFileSync("./chavem.pem"), // Use if connecting via private key
-    };
+    await client.access({
+      host: '10.10.10.8',
+      user: 'life_ext',
+      password: 'L!@m3d#2075',
+      secure: true,
+      secureOptions: {
+        rejectUnauthorized: false // Disable SSL verification for self-signed certificates
+      }
+    });
 
-    await sftp.connect(config);
+    await client.cd('/files');
 
-    const remoteDir = "/pdfs"; // Remote directory containing the files
-    const localDir = "./downloaded_files"; // Local directory where files will be downloaded
+    const files = await client.list();
 
+    const localDirectory = './downloaded_files';
     // Create the local directory if it doesn't exist
-    if (!fs.existsSync(localDir)) {
-      fs.mkdirSync(localDir);
+    if (!fs.existsSync(localDirectory)) {
+      fs.mkdirSync(localDirectory);
     }
-
-    // List files in the remote directory
-    const files = await sftp.list(remoteDir);
 
     // Download each file from the remote directory to the local directory
     for (const file of files) {
-      const remoteFilePath = path.join(remoteDir, file.name);
-      const localFilePath = path.join(localDir, file.name);
+      const remoteFilePath = file.name;
+      const localFilePath = `${localDirectory}/${file.name}`;
 
-      await sftp.get(remoteFilePath, localFilePath);
+      await client.downloadTo(localFilePath, remoteFilePath);
+      console.log(`Downloaded: ${file.name}`);
 
       const base64Pdf = fs.readFileSync(`./downloaded_files/${file.name}`, {
         encoding: "base64",
@@ -92,8 +93,8 @@ async function downloadFiles() {
                       CONTEUDO: {
                         $: base64Pdf,
                       },
-                      NUMNOTA: {
-                        $: file.name,
+                      CHAVENFE: {
+                        $: file.name.replace(".pdf", ""),
                       },
                     },
                   },
@@ -136,7 +137,7 @@ async function downloadFiles() {
   } catch (err) {
     console.error(err);
   } finally {
-    sftp.end(); // Close the SFTP connection
+    client.close(); // Close the connection
   }
 }
 
