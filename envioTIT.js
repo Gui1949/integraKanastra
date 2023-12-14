@@ -86,9 +86,14 @@ let filtrar_dados = () => {
       serviceName: "DbExplorerSP.executeQuery",
       requestBody: {
         sql: `
-        SELECT DISTINCT REN.NURENEG FROM TGFREN REN
-        INNER JOIN TGFFIN FIN ON FIN.NUFIN = REN.NUFIN
-        WHERE FIN.AD_FIDIC = 'Y' AND CODEMP = 510
+        SELECT DISTINCT REN.NURENEG, RECDESP FROM TGFFIN FIN
+        LEFT JOIN TGFREN REN ON REN.NURENEG = FIN.NURENEG
+                WHERE 
+        FIN.AD_FIDIC = 'Y' 
+        AND 
+        CODEMP = 510
+            AND
+        FIN.RECDESP = 1
         `,
       },
     }),
@@ -256,10 +261,12 @@ let integracao = (nureneg) => {
             const mouth = 12;
             const day = 25;
 
+            //TODO: arrumar due date para o dia atual
+
             const dateFormated = new Date(`${year}-${mouth}-${day}`);
 
             itens.push({
-              externalId: unico[27].toString() + 900,
+              externalId: unico[27].toString(),
               amount: unico[25],
               dueDate: format(dateFormated, "yyyyMMdd"),
               customFields: {},
@@ -294,7 +301,7 @@ let integracao = (nureneg) => {
             .then((res) => res.json())
             .then((json) => {
               const body = {
-                externalId: linha[0][29] + 900,
+                externalId: linha[0][29],
                 sponsorName: linha[0][0],
                 sponsorGovernmentId: linha[0][1],
                 sponsorPersonType:
@@ -349,7 +356,7 @@ let integracao = (nureneg) => {
               };
 
               let url_ENVIO =
-                "https://hub-sandbox.kanastra.com.br/api/credit-originators/fidc-medsystem/offers";
+                "https://hub-sandbox.kanastra.com.br/api/credit-originators/fidc-medsystems/offers";
 
               fetch(url_ENVIO, {
                 method: "POST",
@@ -388,6 +395,7 @@ let integracao = (nureneg) => {
                   console.log(resp);
 
                   if (resp.error) {
+                    resp.error = 'Nº Financeiro: ' + linha[0][27] + " - " + resp.error;
                     log_erros.push(resp.error);
                     erros++;
                   } else {

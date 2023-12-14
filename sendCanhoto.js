@@ -15,7 +15,7 @@ let incluidos = 0;
 let erros = 0;
 let log_erros = [];
 
-let base = "http://msp-ironman:8380";
+let base = "http://192.168.0.162:8380";
 let base64String;
 let jsonid;
 let url_consulta =
@@ -102,8 +102,6 @@ let filtrar_dados = () => {
         datares = JSON.parse(datares);
         linha = datares.responseBody.rows;
 
-        total = linha.length;
-
         linha.map((li) => {
           integracao(li[0]);
         });
@@ -187,6 +185,8 @@ let integracao = (nureneg) => {
         datares = JSON.parse(datares);
         linha = datares.responseBody.rows;
 
+        total = linha.length;
+
         // console.log(linha);
 
         let itens = [];
@@ -261,7 +261,9 @@ let integracao = (nureneg) => {
             let date = unico[22];
             const year = date.slice(4, 8);
             const mouth = 12;
-            const day = 13;
+            const day = 25;
+
+            //TODO: Arrumar due date para o dia atual
 
             const dateFormated = new Date(`${year}-${mouth}-${day}`);
 
@@ -303,7 +305,7 @@ let integracao = (nureneg) => {
             .then((res) => res.json())
             .then((json) => {
               const body = {
-                externalId: linha[0][29] + 900,
+                externalId: linha[0][29],
                 sponsorName: linha[0][0],
                 sponsorGovernmentId: linha[0][1],
                 sponsorPersonType:
@@ -360,7 +362,7 @@ let integracao = (nureneg) => {
 
               const offerId = linha[0][linha[0].length - 1];
 
-              let url_ENVIO = `https://hub-sandbox.kanastra.com.br/api/credit-originators/fidc-medsystem/offers/${offerId}`;
+              let url_ENVIO = `https://hub-sandbox.kanastra.com.br/api/credit-originators/fidc-medsystems/offers/${offerId}`;
 
               fetch(url_ENVIO, {
                 method: "PUT",
@@ -400,7 +402,7 @@ let integracao = (nureneg) => {
 
                   try {
                     erros++;
-                    log_erros.push(resp.error);
+                    log_erros.push('Nº Financeiro: ' + linha[0][27] + ' - ' + resp.error);
                   } catch {
                     incluidos++;
 
@@ -467,10 +469,10 @@ let integracao = (nureneg) => {
 
 login_snk();
 
-app.get("/monitor/kanastra/envio_canhoto", function (request, response) {
+app.get("/monitor/kanastra/send_canhoto", function (request, response) {
   response.json({
-    envio_canhoto: {
-      total: total,
+    send_canhoto: {
+      total: incluidos + erros,
       incluidos: incluidos,
       atualizados: 0,
       erros: erros,
@@ -479,4 +481,4 @@ app.get("/monitor/kanastra/envio_canhoto", function (request, response) {
   });
 });
 
-app.listen(process.env.PORT || 4003);
+app.listen(process.env.PORT || 40004);
