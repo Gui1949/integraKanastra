@@ -15,7 +15,7 @@ let incluidos = 0;
 let erros = 0;
 let log_erros = [];
 
-let base = "http://msp-ironman:8380";
+let base = "http://192.168.0.162:8380";
 let base64String;
 
 let login_snk = () => {
@@ -177,7 +177,7 @@ let integracao = (jsonid) => {
               let token = json.access_token;
 
               let url =
-                "https://hub-sandbox.kanastra.com.br/api/credit-originators/fidc-medsystem/liquidations";
+                "https://hub-sandbox.kanastra.com.br/api/credit-originators/fidc-medsystems/liquidations";
 
               let options = {
                 method: "POST",
@@ -262,9 +262,19 @@ let integracao = (jsonid) => {
                         body: JSON.stringify(atualizaParceiro),
                       }
                     )
-                      .then((resp) => resp.text())
+                      .then((resp) => resp.json())
                       .then((resposta) => {
                         console.log(resposta);
+
+                        if (resposta.tsError) {
+                          log_erros.push(
+                            "Nº Financeiro: " +
+                              unico[0] +
+                              " - " +
+                              resposta.statusMessage
+                          );
+                          erros++;
+                        }
                       });
                   }
                 })
