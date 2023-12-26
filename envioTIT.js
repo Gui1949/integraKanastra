@@ -206,6 +206,7 @@ let integracao = (nureneg) => {
             "Accept-Encoding": "gzip, deflate",
             Connection: "Keep-alive",
           },
+          //TODO: Alterar para JSON esse body
           body:
             '{"serviceName":"VisualizadorRelatorios.visualizarRelatorio","requestBody":{"relatorio":{"nuRfe":"' +
             numrfe +
@@ -395,7 +396,8 @@ let integracao = (nureneg) => {
                   console.log(resp);
 
                   if (resp.error) {
-                    resp.error = 'Nº Financeiro: ' + linha[0][27] + " - " + resp.error;
+                    resp.error =
+                      "Nº Financeiro: " + linha[0][27] + " - " + resp.error;
                     log_erros.push(resp.error);
                     erros++;
                   } else {
