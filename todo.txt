@@ -1,0 +1,2 @@
+TODO: Falar com o Gustavo sobre anexos que não estão sendo enviados.
+FIXME: Entender fluxo de devolução e ajustar.

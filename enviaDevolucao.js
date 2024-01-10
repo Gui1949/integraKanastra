@@ -14,6 +14,7 @@ let total = 0;
 let incluidos = 0;
 let erros = 0;
 let log_erros = [];
+let retorno;
 
 let base = "http://192.168.0.162:8380";
 let base64String;
@@ -180,6 +181,8 @@ let integracao = (objeto) => {
               },
             };
 
+            login_snk();
+
             fetch(
               base +
                 "/mge/service.sbr?serviceName=CRUDServiceProvider.saveRecord&outputType=json",
@@ -203,6 +206,8 @@ let integracao = (objeto) => {
               });
             //});
           }
+
+          retorno = resp;
         });
     })
     .catch((err) => console.error("error:" + err));
@@ -223,7 +228,7 @@ app.get("/monitor/kanastra/devolucao", function (request, response) {
   });
 });
 
-app.post("/update/fdic", function (req, res) {
+app.post("/update/fdic", function (req, response) {
   console.log(req.body);
 
   let { numeros, subs, valor } = req.body;
@@ -238,7 +243,15 @@ app.post("/update/fdic", function (req, res) {
 
   integracao(objeto);
 
-  res.send(200);
+  setTimeout(() => {
+    let tratamento = retorno?.error
+      ? retorno?.error
+      : retorno?.status;
+
+    console.log(retorno);
+
+    response.json({ data: tratamento });
+  }, 5000);
 });
 
 app.listen(process.env.PORT || 40003);

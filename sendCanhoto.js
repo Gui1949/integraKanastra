@@ -144,10 +144,16 @@ let integracao = (nureneg) => {
         FIN.PARCRENEG as 'assetType',
         FIN.NUMNOTA as 'invoiceNumber',
         FIN.DTNEG as 'invoiceDate',
-        ISNULL((SELECT CHAVENFE FROM TGFCAB WHERE NUNOTA = (SELECT NUNOTA FROM TGFFIN WHERE NUFIN = (SELECT NUFIN FROM TGFREN
-        WHERE
-        NURENEG = ${nureneg}))),(SELECT CHAVENFE FROM TGFCAB WHERE NUNOTA = (SELECT AD_NUNOTAFDIC FROM TGFFIN FIN INNER JOIN TGFREN REN ON REN.NUFIN = FIN.NUFIN WHERE REN.NURENEG = ${nureneg}))) AS 'invoiceKey',
-        (SELECT COUNT(*) FROM TGFFIN WHERE NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'totalInstallments',
+        ( SELECT CHAVENFE FROM TGFCAB WHERE NUNOTA = (
+          SELECT AD_NUNOTAFDIC
+          FROM TGFFIN FIN 
+          INNER JOIN TGFREN REN ON REN.NUFIN = FIN.NUFIN 
+          INNER JOIN TGFCAB CAB ON FIN.AD_NUNOTAFDIC = CAB.NUNOTA
+          WHERE 
+          REN.NURENEG = ${nureneg} AND CHAVENFE IS NOT NULL
+         )) AS 'invoiceKey',
+        (SELECT COUNT(*) FROM TGFFIN WHERE NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1) 
+        AS 'totalInstallments',
         FIN.VLRDESDOB AS 'paymentValue',
         FIN.DTNEG AS 'paymentDate',
         FIN.NUFIN,
@@ -208,12 +214,27 @@ let integracao = (nureneg) => {
             "Accept-Encoding": "gzip, deflate",
             Connection: "Keep-alive",
           },
-          body:
-            '{"serviceName":"VisualizadorRelatorios.visualizarRelatorio","requestBody":{"relatorio":{"nuRfe":"' +
-            numrfe +
-            '","parametros":{"parametro":[{"classe":"java.math.BigDecimal","descricao":"NUNOTA","nome":"NUNOTA","pesquisa":"false","requerido":"true","valor":"' +
-            linha[0][29] +
-            '"}]},"parametrosPK":{"parametro":[]}}}}',
+          body: JSON.stringify({
+            serviceName: "VisualizadorRelatorios.visualizarRelatorio",
+            requestBody: {
+              relatorio: {
+                nuRfe: numrfe,
+                parametros: {
+                  parametro: [
+                    {
+                      classe: "java.math.BigDecimal",
+                      descricao: "NUNOTA",
+                      nome: "NUNOTA",
+                      pesquisa: "false",
+                      requerido: "true",
+                      valor: linha[0][29],
+                    },
+                  ],
+                },
+                parametrosPK: { parametro: [] },
+              },
+            },
+          }),
         })
           .then((resp) => resp.text())
           .then(function (datares) {
@@ -402,7 +423,9 @@ let integracao = (nureneg) => {
 
                   try {
                     erros++;
-                    log_erros.push('Nº Financeiro: ' + linha[0][27] + ' - ' + resp.error);
+                    log_erros.push(
+                      "Nº Financeiro: " + linha[0][27] + " - " + resp.error
+                    );
                   } catch {
                     incluidos++;
 
