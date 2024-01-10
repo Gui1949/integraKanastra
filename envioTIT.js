@@ -149,7 +149,14 @@ let integracao = (nureneg) => {
   FIN.PARCRENEG as 'assetType',
   FIN.NUMNOTA as 'invoiceNumber',
   FIN.DTNEG as 'invoiceDate',
-  (SELECT CHAVENFE FROM TGFCAB WHERE NUNOTA = (SELECT AD_NUNOTAFDIC FROM TGFFIN FIN INNER JOIN TGFREN REN ON REN.NUFIN = FIN.NUFIN WHERE REN.NURENEG = ${nureneg})) AS 'invoiceKey',
+  ( SELECT CHAVENFE FROM TGFCAB WHERE NUNOTA = (
+    SELECT AD_NUNOTAFDIC
+    FROM TGFFIN FIN 
+    INNER JOIN TGFREN REN ON REN.NUFIN = FIN.NUFIN 
+    INNER JOIN TGFCAB CAB ON FIN.AD_NUNOTAFDIC = CAB.NUNOTA
+    WHERE 
+    REN.NURENEG = ${nureneg} AND CHAVENFE IS NOT NULL
+   )) AS 'invoiceKey',
   (SELECT COUNT(*) FROM TGFFIN WHERE NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'totalInstallments',
   FIN.VLRDESDOB AS 'paymentValue',
   FIN.DTNEG AS 'paymentDate',
@@ -262,7 +269,7 @@ let integracao = (nureneg) => {
             const mouth = 12;
             const day = 25;
 
-            //TODO: arrumar due date para o dia atual
+            //TODO: Arrumar due date para o dia atual
 
             const dateFormated = new Date(`${year}-${mouth}-${day}`);
 
@@ -271,6 +278,10 @@ let integracao = (nureneg) => {
               amount: unico[25],
               dueDate: format(dateFormated, "yyyyMMdd"),
               customFields: {},
+              customFields: {
+                preCalculatedAcquisitionPrice: unico[25] * 0.98,
+                rateType: "PRE",
+              },
             });
           });
 
@@ -301,6 +312,8 @@ let integracao = (nureneg) => {
           fetch(url_KANASTRA_login, options)
             .then((res) => res.json())
             .then((json) => {
+              let hoje = new Date();
+
               const body = {
                 externalId: linha[0][29],
                 sponsorName: linha[0][0],
@@ -316,10 +329,10 @@ let integracao = (nureneg) => {
                 sponsorZipCode: linha[0][9],
                 sellerName: linha[0][10],
                 sellerBank: 341,
-                sellerAgency: 149,
-                sellerAgencyDigit: 1,
-                sellerAccount: 4738,
-                sellerAccountDigit: 47381,
+                sellerAgency: 81,
+                sellerAgencyDigit: 0,
+                sellerAccount: 89269,
+                sellerAccountDigit: 7,
                 sellerGovernmentId: linha[0][11],
                 sellerPersonType: linha[0][12],
                 sellerAddress: linha[0][13],
@@ -338,12 +351,12 @@ let integracao = (nureneg) => {
                     invoiceKey: linha[0][23],
                     totalInstallments: linha[0][24],
                     paymentValue: linha[0][28],
-                    // paymentDate: linha[0][26],
                     customFields: {
                       preCalculatedAcquisitionPrice: linha[0][25] * 0.98,
                       rateType: "PRE",
                     },
-                    paymentDate: "20240101",
+                    preCalculatedAcquisitionPrice: linha[0][25] * 0.98,
+                    paymentDate: format(hoje, "yyyyMMdd"),
                     files: [
                       {
                         content: base64String,
