@@ -23,7 +23,7 @@ let url_consulta =
   "/mge/service.sbr?serviceName=DbExplorerSP.executeQuery&mgeSession=" +
   jsonid;
 
-let login_snk = () => {
+let login_snk = (nureneg, res) => {
   let credentials = {
     username: "INTEGRA.EVUP",
     password: "Med@sys22",
@@ -70,62 +70,62 @@ let login_snk = () => {
       jsonid = jsonid.replace("<jsessionid>", "");
 
       setTimeout(() => {
-        filtrar_dados();
+        integracao(nureneg, res);
       }, 3000);
 
       // Send a JSON response to the client with the jsessionid value
     });
 };
 
-let filtrar_dados = () => {
-  console.log("Filtrando dados");
-  fetch(url_consulta, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json;charset=UTF-8",
-      Cookie: "JSESSIONID=" + jsonid,
-    },
-    body: JSON.stringify({
-      serviceName: "DbExplorerSP.executeQuery",
-      requestBody: {
-        sql: `
-        SELECT TOP 1 REN.NURENEG, RECDESP FROM TGFFIN FIN
-        LEFT JOIN TGFREN REN ON REN.NURENEG = FIN.NURENEG
-                WHERE 
-        FIN.AD_FIDIC = 'Y' 
-        AND 
-        CODEMP = 510
-            AND
-        FIN.RECDESP = 1
-        `,
-      },
-    }),
-  })
-    .then((resp) => resp.text())
-    .then(function (datares) {
-      let linha = "";
+// let filtrar_dados = () => {
+//   console.log("Filtrando dados");
+//   fetch(url_consulta, {
+//     method: "POST",
+//     headers: {
+//       "Content-Type": "application/json;charset=UTF-8",
+//       Cookie: "JSESSIONID=" + jsonid,
+//     },
+//     body: JSON.stringify({
+//       serviceName: "DbExplorerSP.executeQuery",
+//       requestBody: {
+//         sql: `
+//         SELECT TOP 1 REN.NURENEG, RECDESP FROM TGFFIN FIN
+//         LEFT JOIN TGFREN REN ON REN.NURENEG = FIN.NURENEG
+//                 WHERE
+//         FIN.AD_FIDIC = 'Y'
+//         AND
+//         CODEMP = 510
+//             AND
+//         FIN.RECDESP = 1
+//         `,
+//       },
+//     }),
+//   })
+//     .then((resp) => resp.text())
+//     .then(function (datares) {
+//       let linha = "";
 
-      console.log(datares);
-      try {
-        datares = JSON.parse(datares);
-        linha = datares.responseBody.rows;
+//       console.log(datares);
+//       try {
+//         datares = JSON.parse(datares);
+//         linha = datares.responseBody.rows;
 
-        total = linha.length;
+//         total = linha.length;
 
-        console.log(total, "testando");
+//         console.log(total, "testando");
 
-        linha.map((li, index) => {
-          setTimeout(() => {
-            integracao(li[0]);
-          }, 1000 * index);
-        });
-      } catch (err) {
-        console.log(err);
-      }
-    });
-};
+//         linha.map((li, index) => {
+//           setTimeout(() => {
+//             integracao(li[0]);
+//           }, 1000 * index);
+//         });
+//       } catch (err) {
+//         console.log(err);
+//       }
+//     });
+// };
 
-let integracao = (nureneg) => {
+let integracao = (nureneg, res) => {
   console.log("Iniciando integração");
   fetch(url_consulta, {
     method: "POST",
@@ -148,7 +148,7 @@ let integracao = (nureneg) => {
   LTRIM(RTRIM(UFS.UF)) as 'sponsorState',
   LTRIM(RTRIM(PAI.DESCRICAO)) as 'sponsorCountry',
   LTRIM(RTRIM(PAR.CEP)) as 'sponsorZipCode', 
-  LTRIM(RTRIM(EMP.RAZAOSOCIAL)) as 'sellerName',
+  'MEDSYSTEMS COMÉRCIO, IMPORTAÇÃO E EXPORTAÇÃO LTDA' as 'sellerName',
   LTRIM(RTRIM(EMP.CGC)) as 'sellerGovernmentId', 
   'LEGAL_PERSON' AS 'sellerPersonType', 
   LTRIM(RTRIM(UPPER(CONCAT(ENDE_EMP.TIPO, ' ', ENDE_EMP.NOMEEND)))) AS 'sellerAddress',
@@ -168,12 +168,12 @@ let integracao = (nureneg) => {
 	INNER JOIN TGFCAB CAB ON FIN.AD_NUNOTAFDIC = CAB.NUNOTA
 	INNER JOIN TGFCAB CAB1 ON CAB1.NUNOTA = AD_NUNOTAFDIC
 	WHERE
-	REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'invoiceKey',
-  (SELECT COUNT(*) FROM TGFFIN WHERE NURENEG = 23557 AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'totalInstallments',
+	REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'invoiceKey',
+  (SELECT COUNT(*) FROM TGFFIN WHERE NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'totalInstallments',
   FIN.VLRDESDOB AS 'paymentValue',
   FIN.DTNEG AS 'paymentDate',
   FIN.NUFIN,
-  (SELECT SUM(VLRDESDOB) FROM TGFFIN WHERE NURENEG = 23557 AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'valorTotal',
+  (SELECT SUM(VLRDESDOB) FROM TGFFIN WHERE NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'valorTotal',
   AD_NUNOTAFDIC AS 'NUNOTA',
   AD_SKUFIDIC,
   NUMNOTA,
@@ -187,7 +187,18 @@ INNER JOIN TGFCAB CAB ON FIN.AD_NUNOTAFDIC = CAB.NUNOTA
 INNER JOIN TGFCAB CAB1 ON CAB1.NUNOTA = AD_NUNOTAFDIC
 LEFT JOIN TGFNFE NFE ON NFE.NUNOTA = CAB1.NUNOTA
 WHERE
-REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML'
+REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
+(SELECT
+  STRING_AGG(CAB1.NUNOTA, ',') AS notas
+  FROM TGFFIN FIN
+  INNER JOIN TGFREN REN ON REN.NUFIN = FIN.NUFIN
+  INNER JOIN TGFCAB CAB ON FIN.AD_NUNOTAFDIC = CAB.NUNOTA
+  INNER JOIN TGFCAB CAB1 ON CAB1.NUNOTA = AD_NUNOTAFDIC
+  LEFT JOIN TGFNFE NFE ON NFE.NUNOTA = CAB1.NUNOTA
+  WHERE
+  REN.NURENEG = ${nureneg}) AS 'NUNOTA_ORIGINAL',
+  AD_VLRPRESFDIC
+  
   FROM TGFFIN FIN
   LEFT JOIN TGFPAR PAR ON PAR.CODPARC = FIN.CODPARC
   LEFT JOIN TSIEND ENDE ON ENDE.CODEND = PAR.CODEND
@@ -204,7 +215,7 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML'
   LEFT JOIN TSIPAI PAI_EMP ON PAI_EMP.CODPAIS = UFS_EMP.CODPAIS
   
   WHERE 
-  NURENEG = 23557 AND PARCRENEG IS NOT NULL AND RECDESP = 1
+  NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1
   AND FIN.CODEMP = 510
         `,
       },
@@ -261,7 +272,8 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML'
               chave = data.responseBody.chave.valor;
               getNota(jsonid, chave);
             } catch (err) {
-              console.log(err);
+              chave = 0;
+              getNota(jsonid, chave);
             }
           });
 
@@ -308,9 +320,8 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML'
               externalId: unico[27].toString(),
               amount: unico[25],
               dueDate: format(dateFormated, "yyyyMMdd"),
-              customFields: {},
               customFields: {
-                preCalculatedAcquisitionPrice: unico[25] * 0.98,
+                preCalculatedAcquisitionPrice: unico[36],
                 rateType: "PRE",
               },
             });
@@ -340,7 +351,7 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML'
           const dateFormated = new Date(`${year}-${mouth}-${day}`);
 
           fetch(url_KANASTRA_login, options)
-            .then((res) => res.json())
+            .then((rest) => rest.json())
             .then((json) => {
               let hoje = new Date();
 
@@ -376,25 +387,17 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML'
                 customFields: {},
                 items: [
                   {
-                    assetType: "NOTA_COMERCIAL",
+                    assetType: "CONTRATO_DIGITAL",
                     invoiceNumber: linha[0][21].toString(),
                     invoiceDate: format(dateFormated, "yyyyMMdd"),
                     invoiceKey: linha[0][23],
                     totalInstallments: linha[0][24],
-                    paymentValue: linha[0][28],
+                    paymentValue: linha[linha.length - 1][28],
                     customFields: {
-                      preCalculatedAcquisitionPrice: linha[0][25] * 0.98,
                       rateType: "PRE",
                     },
-                    preCalculatedAcquisitionPrice: linha[0][25] * 0.98,
                     paymentDate: format(hoje, "yyyyMMdd"),
-                    files: [
-                      {
-                        content: base64String,
-                        category: "nfe_pdf",
-                        name: "danfe.pdf",
-                      },
-                    ],
+                    files: [],
                     installments: itens,
                   },
                 ],
@@ -419,7 +422,7 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML'
                     INNER JOIN TGFCAB CAB ON CAB.NUNOTA = ATA.CODATA
                 LEFT JOIN AD_XMLCOMPRA COM ON COM.NUNOTA = CAB.NUNOTA
                 INNER JOIN TSIEMP EMP ON EMP.CODEMP = CAB.CODEMP
-                    WHERE CAB.NUNOTA = ${linha[0][30]}
+                    WHERE CAB.NUNOTA IN (${linha[0][35]}, ${linha[0][29]})
                     AND ARQUIVO LIKE '%.pdf'
                   `,
                   },
@@ -428,12 +431,26 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML'
                 .then((resp) => resp.text())
                 .then(function (datares) {
                   let resposta = JSON.parse(datares);
+
+                  // return console.log(`${linha[0][35]}, ${linha[0][29]}`)
+
+                  let resposta1 = resposta.responseBody.rows[0][0];
                   resposta = resposta.responseBody.rows[0][0];
+
                   resposta = Buffer.from(resposta, "hex").toString("base64");
+
                   body.items[0].files.push({
                     content: resposta,
-                    category: "contrato",
-                    name: `aceite.xml`,
+                    category: "dossie",
+                    name: `serasa.pdf`,
+                  });
+
+                  resposta1 = Buffer.from(resposta1, "hex").toString("base64");
+
+                  body.items[0].files.push({
+                    content: resposta1,
+                    category: "contrato_compra",
+                    name: `aceite.pdf`,
                   });
 
                   //TODO: Puxar todas as danfe/nfse, usando um campo igual o invoiceKey, só que com o NUNOTAFDIC
@@ -449,7 +466,103 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML'
                   let invoiceKey_ = linha[0][23].split(",");
 
                   invoiceKey_.map((unitario, index) => {
-                    body.customFields["invoicekey" + index] = unitario;
+                    let newIndex = index + 1;
+                    body.customFields["invoicekey" + newIndex] = unitario;
+                  });
+
+                  let nunota_pdf = linha[0][35].split(",");
+
+                  nunota_pdf.map((unico) => {
+                    fetch(url_relat, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "text/JSON; charset=utf-8",
+                        Cookie: "JSESSIONID=" + jsonid,
+                        Accept: "*/*",
+                        "Accept-Language": "en-GB",
+                        "Accept-Encoding": "gzip, deflate",
+                        Connection: "Keep-alive",
+                      },
+                      //TODO: Alterar para JSON esse body
+                      body:
+                        '{"serviceName":"VisualizadorRelatorios.visualizarRelatorio","requestBody":{"relatorio":{"nuRfe":"' +
+                        numrfe +
+                        '","parametros":{"parametro":[{"classe":"java.math.BigDecimal","descricao":"NUNOTA","nome":"NUNOTA","pesquisa":"false","requerido":"true","valor":"' +
+                        unico +
+                        '"}]},"parametrosPK":{"parametro":[]}}}}',
+                    })
+                      .then((resp) => resp.text())
+                      .then(function (datares) {
+                        let data = JSON.parse(datares);
+                        let chave;
+                        try {
+                          chave = data.responseBody.chave.valor;
+                          getNotaLoop(jsonid, chave);
+                        } catch (err) {
+                          fetch(url_relat, {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "text/JSON; charset=utf-8",
+                              Cookie: "JSESSIONID=" + jsonid,
+                              Accept: "*/*",
+                              "Accept-Language": "en-GB",
+                              "Accept-Encoding": "gzip, deflate",
+                              Connection: "Keep-alive",
+                            },
+                            //TODO: Alterar para JSON esse body
+                            body:
+                              '{"serviceName":"VisualizadorRelatorios.visualizarRelatorio","requestBody":{"relatorio":{"nuRfe":"' +
+                              158 +
+                              '","parametros":{"parametro":[{"classe":"java.math.BigDecimal","descricao":"NUNOTA","nome":"NUNOTA","pesquisa":"false","requerido":"true","valor":"' +
+                              unico +
+                              '"}]},"parametrosPK":{"parametro":[]}}}}',
+                          })
+                            .then((resp) => resp.text())
+                            .then(function (datares) {
+                              let data = JSON.parse(datares);
+                              let chave;
+                              try {
+                                chave = data.responseBody.chave.valor;
+                                getNotaLoop(jsonid, chave, true);
+                              } catch (err) {
+                                console.log(datares);
+                              }
+                            });
+                        }
+                      });
+
+                    let getNotaLoop = (jsonid, chave, servico) => {
+                      let i = 0;
+
+                      console.log(chave, jsonid);
+                      fetch(
+                        base +
+                          `/mge/visualizadorArquivos.mge?download=S&chaveArquivo=${chave}`,
+                        {
+                          method: "GET",
+                          headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            Cookie: `JSESSIONID=${jsonid}`,
+                          },
+                        }
+                      )
+                        .then(function (resp) {
+                          return resp.blob();
+                        })
+                        .then(async function (blob) {
+                          let buffer = await blob.arrayBuffer();
+                          buffer = Buffer.from(buffer);
+                          base64String = btoa(
+                            String.fromCharCode(...new Uint8Array(buffer))
+                          );
+
+                          body.items[0].files.push({
+                            content: base64String,
+                            category: servico ? "nfs_pdf" : "nfe_pdf",
+                            name: `nfe${unico}.pdf`,
+                          });
+                        });
+                    };
                   });
 
                   let url_ENVIO =
@@ -496,6 +609,7 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML'
                           "Nº Financeiro: " + linha[0][27] + " - " + resp.error;
                         log_erros.push(resp.error);
                         erros++;
+                        res.json({ 'data': resp.error });
                       } else {
                         incluidos++;
 
@@ -555,6 +669,8 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML'
                               console.log(resposta);
                             });
                         });
+
+                        res.status(200).json({'data': resp});
                       }
                     });
                 });
@@ -568,8 +684,6 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML'
     });
 };
 
-login_snk();
-
 app.get("/monitor/kanastra/envio", function (request, response) {
   response.json({
     envio: {
@@ -580,6 +694,11 @@ app.get("/monitor/kanastra/envio", function (request, response) {
       log_erros: log_erros,
     },
   });
+});
+
+app.get("/insert/titulo/:nureneg", function (req, res) {
+  let nureneg = req.params.nureneg;
+  login_snk(nureneg, res);
 });
 
 app.listen(process.env.PORT || 40001);
