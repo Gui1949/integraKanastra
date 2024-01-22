@@ -15,7 +15,7 @@ let incluidos = 0;
 let erros = 0;
 let log_erros = [];
 
-let base = "http://msp-bragi.medsystems.local:8180";
+let base = "http://10.10.10.6:8180";
 let base64String;
 let jsonid;
 let url_consulta =
