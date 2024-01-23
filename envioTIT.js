@@ -609,7 +609,7 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                           "Nº Financeiro: " + linha[0][27] + " - " + resp.error;
                         log_erros.push(resp.error);
                         erros++;
-                        res.json({ 'data': resp.error });
+                        res.json({'data': resp.error });
                       } else {
                         incluidos++;
 
@@ -670,7 +670,7 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                             });
                         });
 
-                        res.status(200).json({'data': resp});
+                        res.json({'data': 'OK'});
                       }
                     });
                 });
