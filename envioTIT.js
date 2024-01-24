@@ -314,12 +314,12 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
 
             let year = date.getFullYear();
 
-            const dateFormated = new Date(`${year}-${mouth}-${day}`);
+            const dateFormated = new Date(`${year}${mouth}${day}`);
 
             itens.push({
               externalId: unico[27].toString(),
               amount: unico[25],
-              dueDate: format(dateFormated, "yyyyMMdd"),
+              dueDate: dateFormated,
               customFields: {
                 preCalculatedAcquisitionPrice: unico[36],
                 rateType: "PRE",
