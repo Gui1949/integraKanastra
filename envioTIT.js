@@ -307,19 +307,12 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
 
         let rodar_loop = (base64String) => {
           linha.map((unico, index) => {
-            let date = new Date();
-
-            let day = date.getDate().toString().padStart(2, "0");
-            let mouth = (date.getMonth() + 1).toString().padStart(2, "0");
-
-            let year = date.getFullYear();
-
-            const dateFormated = new Date(`${year}${mouth}${day}`);
+            let agora = new Date();
 
             itens.push({
               externalId: unico[27].toString(),
               amount: unico[25],
-              dueDate: dateFormated,
+              dueDate: format(agora, "yyyyMMdd"),
               customFields: {
                 preCalculatedAcquisitionPrice: unico[36],
                 rateType: "PRE",
@@ -609,7 +602,7 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                           "Nº Financeiro: " + linha[0][27] + " - " + resp.error;
                         log_erros.push(resp.error);
                         erros++;
-                        res.json({ data: resp.error });
+                        res.json({'data': resp.error });
                       } else {
                         incluidos++;
 
@@ -670,7 +663,7 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                             });
                         });
 
-                        res.json({ data: "OK" });
+                        res.json({'data': 'OK'});
                       }
                     });
                 });
