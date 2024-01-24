@@ -307,12 +307,25 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
 
         let rodar_loop = (base64String) => {
           linha.map((unico, index) => {
-            let agora = new Date();
+            let date = unico[22];
+            const year = 2024;
+            const mouth = 12;
+            const day = 25;
+
+            date.getDate().toString().padStart(2, "0") +
+            "/" +
+            (date.getMonth() + 1).toString().padStart(2, "0") +
+            "/" +
+            date.getFullYear();
+
+            //TODO: Arrumar due date para o dia atual
+
+            const dateFormated = new Date(`${year}-${mouth}-${day}`);
 
             itens.push({
               externalId: unico[27].toString(),
               amount: unico[25],
-              dueDate: format(agora, "yyyyMMdd"),
+              dueDate: format(dateFormated, "yyyyMMdd"),
               customFields: {
                 preCalculatedAcquisitionPrice: unico[36],
                 rateType: "PRE",
