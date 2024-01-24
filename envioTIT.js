@@ -307,12 +307,12 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
 
         let rodar_loop = (base64String) => {
           linha.map((unico, index) => {
-            let date = unico[22];
-            const year = date.slice(4, 8);
-            const mouth = 12;
-            const day = 25;
+            let date = new Date();
 
-            //TODO: Arrumar due date para o dia atual
+            let day = date.getDate().toString().padStart(2, "0");
+            let mouth = (date.getMonth() + 1).toString().padStart(2, "0");
+
+            let year = date.getFullYear();
 
             const dateFormated = new Date(`${year}-${mouth}-${day}`);
 
@@ -609,7 +609,7 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                           "Nº Financeiro: " + linha[0][27] + " - " + resp.error;
                         log_erros.push(resp.error);
                         erros++;
-                        res.json({'data': resp.error });
+                        res.json({ data: resp.error });
                       } else {
                         incluidos++;
 
@@ -670,7 +670,7 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                             });
                         });
 
-                        res.json({'data': 'OK'});
+                        res.json({ data: "OK" });
                       }
                     });
                 });
