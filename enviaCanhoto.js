@@ -58,7 +58,7 @@ async function downloadFiles() {
           password: "Med@sys22",
         };
 
-        const base = "http://msp-ironman:8380";
+        const base = "http://10.10.10.6:8180";
 
         // Define the URL for the login service
         const url = base + "/mge/service.sbr?serviceName=MobileLoginSP.login";
@@ -108,7 +108,7 @@ async function downloadFiles() {
                         $: base64Pdf,
                       },
                       CHAVENFE: {
-                        $: file.name.replace(".pdf", ""),
+                        $: file.name.replace(".pdf", "").replace(" ", ""),
                       },
                     },
                   },
@@ -152,6 +152,8 @@ async function downloadFiles() {
                 }
 
                 incluidos++;
+
+                fs.unlinkSync(`./downloaded_files/${file.name}`);
               });
 
             // Send a JSON response to the client with the jsessionid value
@@ -162,7 +164,7 @@ async function downloadFiles() {
     }
   } catch (err) {
     console.error(err);
-    log_erros.push(err)
+    log_erros.push(err);
   } finally {
     client.close(); // Close the connection
   }
@@ -170,18 +172,16 @@ async function downloadFiles() {
 
 downloadFiles();
 
-
 app.get("/monitor/kanastra/envia_canhoto", function (request, response) {
-    response.json({
-      envia_canhoto: {
-        total: incluidos + erros,
-        incluidos: incluidos,
-        atualizados: 0,
-        erros: erros,
-        log_erros: log_erros,
-      },
-    });
+  response.json({
+    envia_canhoto: {
+      total: incluidos + erros,
+      incluidos: incluidos,
+      atualizados: 0,
+      erros: erros,
+      log_erros: log_erros,
+    },
   });
-  
-  app.listen(process.env.PORT || 40005);
-  
+});
+
+app.listen(process.env.PORT || 40005);

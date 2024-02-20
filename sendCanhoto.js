@@ -15,7 +15,7 @@ let incluidos = 0;
 let erros = 0;
 let log_erros = [];
 
-let base = "http://192.168.0.162:8380";
+const base = "http://10.10.10.6:8180";
 let base64String;
 let jsonid;
 let url_consulta =
@@ -76,6 +76,8 @@ let login_snk = () => {
 };
 
 let filtrar_dados = () => {
+  console.log("fitlrar");
+
   fetch(url_consulta, {
     method: "POST",
     headers: {
@@ -86,11 +88,132 @@ let filtrar_dados = () => {
       serviceName: "DbExplorerSP.executeQuery",
       requestBody: {
         sql: `
-        SELECT FIN.NURENEG FROM AD_CANHOTOFTP FTP
+        SELECT DISTINCT FIN.NURENEG FROM AD_CANHOTOFTP FTP
         LEFT JOIN TGFCAB CAB ON CAB.CHAVENFE = FTP.CHAVENFE
         LEFT JOIN TGFFIN FIN ON CAB.NUNOTA = FIN.AD_NUNOTAFDIC
         LEFT JOIN AD_WEBHOOKFIDIC FID ON FID.EXTERNAL_ID = FIN.NUFIN
-        WHERE FIN.CODEMP = 510 AND FIN.AD_FIDIC = 'I'
+        WHERE FIN.CODEMP = 510 AND FIN.AD_FIDIC IS NOT NULL AND 
+        FIN.AD_FIDIC <> 'N'
+        `,
+      },
+    }),
+  })
+    .then((resp) => resp.text())
+    .then(function (datares) {
+      console.log(datares);
+
+      let linha = "";
+      try {
+        datares = JSON.parse(datares);
+        linha = datares.responseBody.rows;
+
+        linha.forEach((li, index) => {
+          setTimeout(() => {
+            console.log(`Integração nº ${index}, NU ${li[0]}`)
+            integracao(li[0]);      
+          }, 10000 * index)
+        });
+      } catch {}
+    });
+};
+
+let integracao = (nureneg, res) => {
+  console.log("Iniciando integração");
+  fetch(url_consulta, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      Cookie: "JSESSIONID=" + jsonid,
+    },
+    body: JSON.stringify({
+      serviceName: "DbExplorerSP.executeQuery",
+      requestBody: {
+        sql: `
+        SELECT 
+  LTRIM(RTRIM(PAR.RAZAOSOCIAL)) AS 'sponsorName', 
+  LTRIM(RTRIM(CGC_CPF)) as 'sponsorGovernmentId',
+  LTRIM(RTRIM(TIPPESSOA)) as 'sponsorPersonType',  
+  LTRIM(RTRIM(UPPER(CONCAT(ENDE.TIPO, ' ', ENDE.NOMEEND)))) AS 'sponsorAddress',
+  LTRIM(RTRIM(PAR.NUMEND)) as 'sponsorAddressNumber', 
+  LTRIM(RTRIM(BAI.NOMEBAI)) as 'sponsorNeighborhood', 
+  LTRIM(RTRIM(CID.NOMECID)) as 'sponsorCity', 
+  LTRIM(RTRIM(UFS.UF)) as 'sponsorState',
+  LTRIM(RTRIM(PAI.DESCRICAO)) as 'sponsorCountry',
+  LTRIM(RTRIM(PAR.CEP)) as 'sponsorZipCode', 
+  'MEDSYSTEMS COMÉRCIO, IMPORTAÇÃO E EXPORTAÇÃO LTDA' as 'sellerName',
+  LTRIM(RTRIM(EMP.CGC)) as 'sellerGovernmentId', 
+  'LEGAL_PERSON' AS 'sellerPersonType', 
+  LTRIM(RTRIM(UPPER(CONCAT(ENDE_EMP.TIPO, ' ', ENDE_EMP.NOMEEND)))) AS 'sellerAddress',
+  LTRIM(RTRIM(EMP.NUMEND)) as 'sellerAddressNumber',
+  LTRIM(RTRIM(BAI_EMP.NOMEBAI)) as 'sellerNeighborhood',
+  LTRIM(RTRIM(CID_EMP.NOMECID)) as 'sellerCity',
+  LTRIM(RTRIM(UFS_EMP.UF)) as 'sellerState',
+  LTRIM(RTRIM(PAI_EMP.DESCRICAO)) as 'sellerCountry', 
+  LTRIM(RTRIM(EMP.CEP)) as 'sellerZipCode',
+  FIN.PARCRENEG as 'assetType',
+  FIN.NUMNOTA as 'invoiceNumber',
+  FIN.DTNEG as 'invoiceDate',
+  (SELECT
+  STRING_AGG(CAB1.CHAVENFE, ',') AS notas
+	FROM TGFFIN FIN
+	INNER JOIN TGFREN REN ON REN.NUFIN = FIN.NUFIN
+	INNER JOIN TGFCAB CAB ON FIN.AD_NUNOTAFDIC = CAB.NUNOTA
+	INNER JOIN TGFCAB CAB1 ON CAB1.NUNOTA = AD_NUNOTAFDIC
+	WHERE
+	REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'invoiceKey',
+  (SELECT COUNT(*) FROM TGFFIN WHERE NURENEG = 23557 AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'totalInstallments',
+  FIN.VLRDESDOB AS 'paymentValue',
+  FIN.DTNEG AS 'paymentDate',
+  FIN.NUFIN,
+  (SELECT SUM(VLRDESDOB) FROM TGFFIN WHERE NURENEG = 23557 AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'valorTotal',
+  AD_NUNOTAFDIC AS 'NUNOTA',
+  AD_SKUFIDIC,
+  FIN.NUMNOTA,
+  AD_NUFINORIG,
+  FIN.AD_FIDIC,
+(SELECT
+STRING_AGG(CONVERT(NVARCHAR(max), NFE.XML), '§ç§') AS notas
+FROM TGFFIN FIN
+INNER JOIN TGFREN REN ON REN.NUFIN = FIN.NUFIN
+INNER JOIN TGFCAB CAB ON FIN.AD_NUNOTAFDIC = CAB.NUNOTA
+INNER JOIN TGFCAB CAB1 ON CAB1.NUNOTA = AD_NUNOTAFDIC
+LEFT JOIN TGFNFE NFE ON NFE.NUNOTA = CAB1.NUNOTA
+WHERE
+REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
+(SELECT
+  STRING_AGG(CAB1.NUNOTA, ',') AS notas
+  FROM TGFFIN FIN
+  INNER JOIN TGFREN REN ON REN.NUFIN = FIN.NUFIN
+  INNER JOIN TGFCAB CAB ON FIN.AD_NUNOTAFDIC = CAB.NUNOTA
+  INNER JOIN TGFCAB CAB1 ON CAB1.NUNOTA = AD_NUNOTAFDIC
+  LEFT JOIN TGFNFE NFE ON NFE.NUNOTA = CAB1.NUNOTA
+  WHERE
+  REN.NURENEG = 23557) AS 'NUNOTA_ORIGINAL',
+  AD_VLRPRESFDIC,
+  FTP.CONTEUDO,
+  AD_OFFER_ID
+  
+  FROM TGFFIN FIN
+  LEFT JOIN TGFPAR PAR ON PAR.CODPARC = FIN.CODPARC
+  LEFT JOIN TSIEND ENDE ON ENDE.CODEND = PAR.CODEND
+  LEFT JOIN TSIBAI BAI ON BAI.CODBAI = PAR.CODBAI
+  LEFT JOIN TSICID CID ON CID.CODCID = PAR.CODCID
+  LEFT JOIN TSIUFS UFS ON UFS.CODUF = CID.UF
+  LEFT JOIN TSIPAI PAI ON PAI.CODPAIS = UFS.CODPAIS
+  LEFT JOIN TSIEMP EMP ON EMP.CODEMP = FIN.CODEMP
+  
+  LEFT JOIN TSIEND ENDE_EMP ON ENDE_EMP.CODEND = EMP.CODEND
+  LEFT JOIN TSIBAI BAI_EMP ON BAI_EMP.CODBAI = EMP.CODBAI
+  LEFT JOIN TSICID CID_EMP ON CID_EMP.CODCID = EMP.CODCID
+  LEFT JOIN TSIUFS UFS_EMP ON UFS_EMP.CODUF = CID_EMP.UF
+  LEFT JOIN TSIPAI PAI_EMP ON PAI_EMP.CODPAIS = UFS_EMP.CODPAIS
+
+  INNER JOIN TGFCAB CAB ON CAB.NUNOTA = FIN.AD_NUNOTAFDIC
+  INNER JOIN AD_CANHOTOFTP FTP ON CAB.CHAVENFE = FTP.CHAVENFE
+  
+  WHERE 
+  NURENEG = 23557 AND PARCRENEG IS NOT NULL AND RECDESP = 1
+  AND FIN.CODEMP = 510
         `,
       },
     }),
@@ -102,98 +225,14 @@ let filtrar_dados = () => {
         datares = JSON.parse(datares);
         linha = datares.responseBody.rows;
 
-        linha.map((li) => {
-          integracao(li[0]);
+        let xmls = linha[0][34].split("§ç§");
+
+        let base64_xml = [];
+
+        xmls.map((unitario, index) => {
+          // fs.createWriteStream('./download/arquivo' + index + '.xml').write(unitario);
+          base64_xml.push(btoa(unitario));
         });
-      } catch {}
-    });
-};
-
-let integracao = (nureneg) => {
-  fetch(url_consulta, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json;charset=UTF-8",
-      Cookie: "JSESSIONID=" + jsonid,
-    },
-    body: JSON.stringify({
-      serviceName: "DbExplorerSP.executeQuery",
-      requestBody: {
-        sql: `
-        SELECT
-        LTRIM(RTRIM(PAR.RAZAOSOCIAL)) AS 'sponsorName',
-        LTRIM(RTRIM(CGC_CPF)) as 'sponsorGovernmentId',
-        LTRIM(RTRIM(TIPPESSOA)) as 'sponsorPersonType',  
-        LTRIM(RTRIM(UPPER(CONCAT(ENDE.TIPO, ' ', ENDE.NOMEEND)))) AS 'sponsorAddress',
-        LTRIM(RTRIM(PAR.NUMEND)) as 'sponsorAddressNumber',
-        LTRIM(RTRIM(BAI.NOMEBAI)) as 'sponsorNeighborhood',
-        LTRIM(RTRIM(CID.NOMECID)) as 'sponsorCity',
-        LTRIM(RTRIM(UFS.UF)) as 'sponsorState',
-        LTRIM(RTRIM(PAI.DESCRICAO)) as 'sponsorCountry',
-        LTRIM(RTRIM(PAR.CEP)) as 'sponsorZipCode',
-        LTRIM(RTRIM(EMP.RAZAOSOCIAL)) as 'sellerName',
-        LTRIM(RTRIM(EMP.CGC)) as 'sellerGovernmentId',
-        'LEGAL_PERSON' AS 'sellerPersonType',
-        LTRIM(RTRIM(UPPER(CONCAT(ENDE_EMP.TIPO, ' ', ENDE_EMP.NOMEEND)))) AS 'sellerAddress',
-        LTRIM(RTRIM(EMP.NUMEND)) as 'sellerAddressNumber',
-        LTRIM(RTRIM(BAI_EMP.NOMEBAI)) as 'sellerNeighborhood',
-        LTRIM(RTRIM(CID_EMP.NOMECID)) as 'sellerCity',
-        LTRIM(RTRIM(UFS_EMP.UF)) as 'sellerState',
-        LTRIM(RTRIM(PAI_EMP.DESCRICAO)) as 'sellerCountry',
-        LTRIM(RTRIM(EMP.CEP)) as 'sellerZipCode',
-        FIN.PARCRENEG as 'assetType',
-        FIN.NUMNOTA as 'invoiceNumber',
-        FIN.DTNEG as 'invoiceDate',
-        ( SELECT CHAVENFE FROM TGFCAB WHERE NUNOTA = (
-          SELECT AD_NUNOTAFDIC
-          FROM TGFFIN FIN 
-          INNER JOIN TGFREN REN ON REN.NUFIN = FIN.NUFIN 
-          INNER JOIN TGFCAB CAB ON FIN.AD_NUNOTAFDIC = CAB.NUNOTA
-          WHERE 
-          REN.NURENEG = ${nureneg} AND CHAVENFE IS NOT NULL
-         )) AS 'invoiceKey',
-        (SELECT COUNT(*) FROM TGFFIN WHERE NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1) 
-        AS 'totalInstallments',
-        FIN.VLRDESDOB AS 'paymentValue',
-        FIN.DTNEG AS 'paymentDate',
-        FIN.NUFIN,
-        (SELECT SUM(VLRDESDOB) FROM TGFFIN WHERE NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'valorTotal',
-        ISNULL((SELECT NUNOTA FROM TGFCAB WHERE NUNOTA = (SELECT NUNOTA FROM TGFFIN WHERE NUFIN = (SELECT NUFIN FROM TGFREN
-          WHERE
-          NURENEG = ${nureneg}))), AD_NUNOTAFDIC) AS 'NUNOTA', FIN.AD_OFFER_ID 
-       
-        FROM TGFFIN FIN
-        LEFT JOIN TGFPAR PAR ON PAR.CODPARC = FIN.CODPARC
-        LEFT JOIN TSIEND ENDE ON ENDE.CODEND = PAR.CODEND
-        LEFT JOIN TSIBAI BAI ON BAI.CODBAI = PAR.CODBAI
-        LEFT JOIN TSICID CID ON CID.CODCID = PAR.CODCID
-        LEFT JOIN TSIUFS UFS ON UFS.CODUF = CID.UF
-        LEFT JOIN TSIPAI PAI ON PAI.CODPAIS = UFS.CODPAIS
-        LEFT JOIN TSIEMP EMP ON EMP.CODEMP = FIN.CODEMP
-       
-        LEFT JOIN TSIEND ENDE_EMP ON ENDE_EMP.CODEND = EMP.CODEND
-        LEFT JOIN TSIBAI BAI_EMP ON BAI_EMP.CODBAI = EMP.CODBAI
-        LEFT JOIN TSICID CID_EMP ON CID_EMP.CODCID = EMP.CODCID
-        LEFT JOIN TSIUFS UFS_EMP ON UFS_EMP.CODUF = CID_EMP.UF
-        LEFT JOIN TSIPAI PAI_EMP ON PAI_EMP.CODPAIS = UFS_EMP.CODPAIS
-       
-        WHERE
-        NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1
-        AND FIN.CODEMP = 510
-       `,
-      },
-    }),
-  })
-    .then((resp) => resp.text())
-    .then(function (datares) {
-      let linha = "";
-      try {
-        datares = JSON.parse(datares);
-        linha = datares.responseBody.rows;
-
-        total = linha.length;
-
-        // console.log(linha);
 
         let itens = [];
 
@@ -214,38 +253,24 @@ let integracao = (nureneg) => {
             "Accept-Encoding": "gzip, deflate",
             Connection: "Keep-alive",
           },
-          body: JSON.stringify({
-            serviceName: "VisualizadorRelatorios.visualizarRelatorio",
-            requestBody: {
-              relatorio: {
-                nuRfe: numrfe,
-                parametros: {
-                  parametro: [
-                    {
-                      classe: "java.math.BigDecimal",
-                      descricao: "NUNOTA",
-                      nome: "NUNOTA",
-                      pesquisa: "false",
-                      requerido: "true",
-                      valor: linha[0][29],
-                    },
-                  ],
-                },
-                parametrosPK: { parametro: [] },
-              },
-            },
-          }),
+          //TODO: Alterar para JSON esse body
+          body:
+            '{"serviceName":"VisualizadorRelatorios.visualizarRelatorio","requestBody":{"relatorio":{"nuRfe":"' +
+            numrfe +
+            '","parametros":{"parametro":[{"classe":"java.math.BigDecimal","descricao":"NUNOTA","nome":"NUNOTA","pesquisa":"false","requerido":"true","valor":"' +
+            linha[0][29] +
+            '"}]},"parametrosPK":{"parametro":[]}}}}',
         })
           .then((resp) => resp.text())
           .then(function (datares) {
-            console.log(datares);
             let data = JSON.parse(datares);
             let chave;
             try {
               chave = data.responseBody.chave.valor;
               getNota(jsonid, chave);
             } catch (err) {
-              console.log(err);
+              chave = 0;
+              getNota(jsonid, chave);
             }
           });
 
@@ -280,7 +305,7 @@ let integracao = (nureneg) => {
         let rodar_loop = (base64String) => {
           linha.map((unico, index) => {
             let date = unico[22];
-            const year = date.slice(4, 8);
+            const year = 2024;
             const mouth = 12;
             const day = 25;
 
@@ -293,13 +318,13 @@ let integracao = (nureneg) => {
               amount: unico[25],
               dueDate: format(dateFormated, "yyyyMMdd"),
               customFields: {
-                preCalculatedAcquisitionPrice: unico[25] * 0.98,
+                preCalculatedAcquisitionPrice: unico[36],
+                rateType: "PRE",
               },
             });
           });
 
-          let url_KANASTRA_login =
-            "https://hub-sandbox.kanastra.com.br/oauth/token";
+          let url_KANASTRA_login = "https://hub.kanastra.com.br/oauth/token";
 
           let options = {
             method: "POST",
@@ -309,8 +334,8 @@ let integracao = (nureneg) => {
             },
             body: `{
                 "grant_type":"client_credentials",
-                "client_id":"67652792",
-                "client_secret":"$2y$10$U6KJaIlRZMNQEIJAz1LiG.dyhCmyrvw19D.5SvvgweBX3ZY.kVSo.",
+                "client_id":"67652790",
+                "client_secret":"$2y$10$KNAYBGoNPbCwY/cvxzuVeuEzyT3iKEVf/JojlfSctye8LFbGLoxZe",
                 "scope": "create-offers"
             }`,
           };
@@ -323,168 +348,288 @@ let integracao = (nureneg) => {
           const dateFormated = new Date(`${year}-${mouth}-${day}`);
 
           fetch(url_KANASTRA_login, options)
-            .then((res) => res.json())
+            .then((rest) => rest.json())
             .then((json) => {
+              let hoje = new Date();
+
               const body = {
-                externalId: linha[0][29],
-                sponsorName: linha[0][0],
-                sponsorGovernmentId: linha[0][1],
-                sponsorPersonType:
-                  linha[0][2] == "J" ? "LEGAL_PERSON" : "NATURAL_PERSON",
-                sponsorAddress: linha[0][3],
-                sponsorAddressNumber: linha[0][4],
-                sponsorNeighborhood: linha[0][5],
-                sponsorCity: linha[0][6],
-                sponsorState: linha[0][7],
-                sponsorCountry: linha[0][8],
-                sponsorZipCode: linha[0][9],
-                sellerName: linha[0][10],
-                sellerBank: 341,
-                sellerAgency: 149,
-                sellerAgencyDigit: 1,
-                sellerAccount: 4738,
-                sellerAccountDigit: 47381,
-                sellerGovernmentId: linha[0][11],
-                sellerPersonType: linha[0][12],
-                sellerAddress: linha[0][13],
-                sellerAddressNumber: linha[0][14],
-                sellerNeighborhood: linha[0][15],
-                sellerCity: linha[0][16],
-                sellerState: linha[0][17],
-                sellerCountry: linha[0][18],
-                sellerZipCode: linha[0][19],
-                coobrigation: false,
-                customFields: {},
-                items: [
-                  {
-                    customFields: {
-                      preCalculatedAcquisitionPrice: linha[0][28],
-                      rateType: "PRE",
-                    },
-                    assetType: "NOTA_COMERCIAL",
-                    invoiceNumber: linha[0][21].toString(),
-                    invoiceDate: format(dateFormated, "yyyyMMdd"),
-                    invoiceKey: linha[0][23],
-                    totalInstallments: linha[0][24],
-                    paymentValue: linha[0][28],
-                    // paymentDate: linha[0][26],
-                    paymentDate: "20240101",
-                    files: [
-                      {
-                        content: base64String,
-                        category: "nfe_pdf",
-                        name: "danfe.pdf",
-                      },
-                    ],
-                    installments: itens,
-                  },
-                ],
+                files: [],
               };
 
-              const offerId = linha[0][linha[0].length - 1];
+              let url =
+                base +
+                "/mge/service.sbr?serviceName=DbExplorerSP.executeQuery&mgeSession=" +
+                jsonid;
 
-              let url_ENVIO = `https://hub-sandbox.kanastra.com.br/api/credit-originators/fidc-medsystems/offers/${offerId}`;
-
-              fetch(url_ENVIO, {
-                method: "PUT",
+              fetch(url, {
+                method: "POST",
                 headers: {
-                  Accept: "application/json",
                   "Content-Type": "application/json",
-                  Authorization: `Bearer ${json.access_token}`,
+                  Cookie: "JSESSIONID=" + jsonid,
                 },
-                body: JSON.stringify(body),
+                body: JSON.stringify({
+                  serviceName: "DbExplorerSP.executeQuery",
+                  requestBody: {
+                    sql: `
+                    SELECT CONTEUDO FROM TSIATA ATA 
+                    INNER JOIN TGFCAB CAB ON CAB.NUNOTA = ATA.CODATA
+                LEFT JOIN AD_XMLCOMPRA COM ON COM.NUNOTA = CAB.NUNOTA
+                INNER JOIN TSIEMP EMP ON EMP.CODEMP = CAB.CODEMP
+                    WHERE CAB.NUNOTA IN (${linha[0][35]}, ${linha[0][29]})
+                    AND ARQUIVO LIKE '%.pdf'
+                  `,
+                  },
+                }),
               })
-                .then((response) => {
-                  //return console.log(JSON.stringify(body));
+                .then((resp) => resp.text())
+                .then(function (datares) {
+                  let resposta = JSON.parse(datares);
 
-                  // const str = JSON.stringify(body);
-                  // const filename = "input.txt";
+                  // return console.log(`${linha[0][35]}, ${linha[0][29]}`)
 
-                  // fs.open(filename, "a", (err, fd) => {
-                  //   if (err) {
-                  //     console.log(err.message);
-                  //   } else {
-                  //     fs.write(fd, str, (err, bytes) => {
-                  //       if (err) {
-                  //         console.log(err.message);
-                  //       } else {
-                  //         console.log(bytes + " bytes written");
-                  //       }
-                  //     });
-                  //   }
-                  // });
+                  let resposta1 = resposta.responseBody.rows[0][0];
+                  resposta = resposta.responseBody.rows[0][0];
 
-                  console.log(response.status, response.statusText);
+                  resposta = Buffer.from(resposta, "hex").toString("base64");
 
-                  return response.json();
-                })
-                .then((resp) => {
-                  console.log(resp);
+                  body.files.push({
+                    content: resposta,
+                    category: "dossie",
+                    name: `serasa.pdf`,
+                  });
 
-                  try {
-                    erros++;
-                    log_erros.push(
-                      "Nº Financeiro: " + linha[0][27] + " - " + resp.error
-                    );
-                  } catch {
-                    incluidos++;
+                  body.files.push({
+                    content: linha[0][37],
+                    category: "comprovante_assinatura",
+                    name: `canhoto.pdf`,
+                  });
 
-                    linha.map((unitario) => {
-                      let atualizaParceiro = {
-                        serviceName: "CRUDServiceProvider.saveRecord",
-                        requestBody: {
-                          dataSet: {
-                            rootEntity: "Financeiro",
-                            includePresentationFields: "N",
-                            dataRow: {
-                              localFields: {
-                                AD_FIDIC: {
-                                  $: "I",
-                                },
-                              },
-                              key: {
-                                NUFIN: {
-                                  $: unitario[27],
-                                },
-                              },
+                  resposta1 = Buffer.from(resposta1, "hex").toString("base64");
+
+                  body.files.push({
+                    content: resposta1,
+                    category: "contrato_compra",
+                    name: `aceite.pdf`,
+                  });
+
+                  //TODO: Puxar todas as danfe/nfse, usando um campo igual o invoiceKey, só que com o NUNOTAFDIC
+
+                  base64_xml.map((unitario, index) => {
+                    body.files.push({
+                      content: unitario,
+                      category: "nfe_xml",
+                      name: `arquivo${index}.xml`,
+                    });
+                  });
+
+                  let nunota_pdf = linha[0][35].split(",");
+
+                  nunota_pdf.map((unico) => {
+                    fetch(url_relat, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "text/JSON; charset=utf-8",
+                        Cookie: "JSESSIONID=" + jsonid,
+                        Accept: "*/*",
+                        "Accept-Language": "en-GB",
+                        "Accept-Encoding": "gzip, deflate",
+                        Connection: "Keep-alive",
+                      },
+                      //TODO: Alterar para JSON esse body
+                      body:
+                        '{"serviceName":"VisualizadorRelatorios.visualizarRelatorio","requestBody":{"relatorio":{"nuRfe":"' +
+                        numrfe +
+                        '","parametros":{"parametro":[{"classe":"java.math.BigDecimal","descricao":"NUNOTA","nome":"NUNOTA","pesquisa":"false","requerido":"true","valor":"' +
+                        unico +
+                        '"}]},"parametrosPK":{"parametro":[]}}}}',
+                    })
+                      .then((resp) => resp.text())
+                      .then(function (datares) {
+                        let data = JSON.parse(datares);
+                        let chave;
+                        try {
+                          chave = data.responseBody.chave.valor;
+                          getNotaLoop(jsonid, chave);
+                        } catch (err) {
+                          fetch(url_relat, {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "text/JSON; charset=utf-8",
+                              Cookie: "JSESSIONID=" + jsonid,
+                              Accept: "*/*",
+                              "Accept-Language": "en-GB",
+                              "Accept-Encoding": "gzip, deflate",
+                              Connection: "Keep-alive",
                             },
-                            entity: {
-                              fieldset: {
-                                list: "NUFIN",
-                              },
-                            },
-                          },
-                        },
-                      };
+                            //TODO: Alterar para JSON esse body
+                            body:
+                              '{"serviceName":"VisualizadorRelatorios.visualizarRelatorio","requestBody":{"relatorio":{"nuRfe":"' +
+                              158 +
+                              '","parametros":{"parametro":[{"classe":"java.math.BigDecimal","descricao":"NUNOTA","nome":"NUNOTA","pesquisa":"false","requerido":"true","valor":"' +
+                              unico +
+                              '"}]},"parametrosPK":{"parametro":[]}}}}',
+                          })
+                            .then((resp) => resp.text())
+                            .then(function (datares) {
+                              let data = JSON.parse(datares);
+                              let chave;
+                              try {
+                                chave = data.responseBody.chave.valor;
+                                getNotaLoop(jsonid, chave, true);
+                              } catch (err) {
+                                console.log(datares);
+                              }
+                            });
+                        }
+                      });
 
+                    let getNotaLoop = (jsonid, chave, servico) => {
+                      let i = 0;
+
+                      console.log(chave, jsonid);
                       fetch(
                         base +
-                          "/mge/service.sbr?serviceName=CRUDServiceProvider.saveRecord&outputType=json",
+                          `/mge/visualizadorArquivos.mge?download=S&chaveArquivo=${chave}`,
                         {
-                          method: "POST",
+                          method: "GET",
                           headers: {
-                            "Content-Type": "text/xml; charset=utf-8",
-                            Accept: "*/*",
-                            "Accept-Language": "en-GB",
-                            "Accept-Encoding": "gzip, deflate",
-                            Connection: "Keep-alive",
-                            "Content-Length": atualizaParceiro.length,
-                            Cookie: "JSESSIONID=" + jsonid,
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            Cookie: `JSESSIONID=${jsonid}`,
                           },
-                          body: JSON.stringify(atualizaParceiro),
                         }
                       )
-                        .then((resp) => resp.text())
-                        .then((resposta) => {
-                          console.log(resposta);
+                        .then(function (resp) {
+                          return resp.blob();
+                        })
+                        .then(async function (blob) {
+                          let buffer = await blob.arrayBuffer();
+                          buffer = Buffer.from(buffer);
+                          base64String = btoa(
+                            String.fromCharCode(...new Uint8Array(buffer))
+                          );
+
+                          body.files.push({
+                            content: base64String,
+                            category: servico ? "nfs_pdf" : "nfe_pdf",
+                            name: `nfe${unico}.pdf`,
+                          });
                         });
+                    };
+                  });
+
+                  let url_ENVIO =
+                    "https://hub.kanastra.com.br/api/credit-originators/fidc-medsystems/offers/" +
+                    linha[0][27];
+
+                  const str = JSON.stringify(body);
+                  const filename = "input.txt";
+
+                  fs.open(filename, "a", (err, fd) => {
+                    if (err) {
+                      console.log(err.message);
+                    } else {
+                      fs.write(fd, str, (err, bytes) => {
+                        if (err) {
+                          console.log(err.message);
+                        } else {
+                          console.log(bytes + " bytes written");
+                        }
+                      });
+                    }
+                  });
+
+                  fetch(url_ENVIO, {
+                    method: "PATCH",
+                    headers: {
+                      Accept: "application/json",
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${json.access_token}`,
+                    },
+                    body: JSON.stringify(body),
+                  })
+                    .then((response) => {
+                      console.log(response.status, response.statusText);
+
+                      return response.json();
+                    })
+                    .then((resp) => {
+                      console.log(resp);
+
+                      if (resp.error) {
+                        resp.error =
+                          "Nº Financeiro: " + linha[0][27] + " - " + resp.error;
+                        log_erros.push(resp.error);
+                        erros++;
+                        res.json({ data: resp.error });
+                      } else {
+                        incluidos++;
+
+                        linha.map((unitario) => {
+                          let atualizaParceiro = {
+                            serviceName: "CRUDServiceProvider.saveRecord",
+                            requestBody: {
+                              dataSet: {
+                                rootEntity: "Financeiro",
+                                includePresentationFields: "N",
+                                dataRow: {
+                                  localFields: {
+                                    AD_FIDIC: {
+                                      $: "I",
+                                    },
+                                    AD_SKUFIDIC: {
+                                      $: resp.external_id,
+                                    },
+                                    AD_OFFER_ID: {
+                                      $: resp.id,
+                                    },
+                                  },
+                                  key: {
+                                    NUFIN: {
+                                      $: unitario[27],
+                                    },
+                                  },
+                                },
+                                entity: {
+                                  fieldset: {
+                                    list: "NUFIN, AD_FIDIC, AD_SKUFIDIC",
+                                  },
+                                },
+                              },
+                            },
+                          };
+
+                          fetch(
+                            base +
+                              "/mge/service.sbr?serviceName=CRUDServiceProvider.saveRecord&outputType=json",
+                            {
+                              method: "POST",
+                              headers: {
+                                "Content-Type": "text/xml; charset=utf-8",
+                                Accept: "*/*",
+                                "Accept-Language": "en-GB",
+                                "Accept-Encoding": "gzip, deflate",
+                                Connection: "Keep-alive",
+                                "Content-Length": atualizaParceiro.length,
+                                Cookie: "JSESSIONID=" + jsonid,
+                              },
+                              body: JSON.stringify(atualizaParceiro),
+                            }
+                          )
+                            .then((resp) => resp.text())
+                            .then((resposta) => {
+                              console.log(resposta);
+                            });
+                        });
+
+                        // res.json({ data: "OK" });
+                      }
                     });
-                  }
                 });
             })
             .catch((err) => console.error("error:" + err));
         };
-      } catch {
+      } catch (err) {
+        console.log(err);
         linha = undefined;
       }
     });
