@@ -298,9 +298,11 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
             .then(async function (blob) {
               let buffer = await blob.arrayBuffer();
               buffer = Buffer.from(buffer);
-              base64String = btoa(
-                String.fromCharCode(...new Uint8Array(buffer))
-              );
+              try {
+                base64String = btoa(
+                  String.fromCharCode(...new Uint8Array(buffer))
+                );
+              } catch {}
               rodar_loop(base64String);
             });
         };
@@ -609,7 +611,7 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                           "Nº Financeiro: " + linha[0][27] + " - " + resp.error;
                         log_erros.push(resp.error);
                         erros++;
-                        res.json({'data': resp.error });
+                        res.json({ data: resp.error });
                       } else {
                         incluidos++;
 
@@ -670,7 +672,7 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                             });
                         });
 
-                        res.json({'data': 'OK'});
+                        res.json({ data: "OK" });
                       }
                     });
                 });
