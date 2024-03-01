@@ -142,7 +142,7 @@ let integracao = (nureneg, res) => {
   LTRIM(RTRIM(CGC_CPF)) as 'sponsorGovernmentId',
   LTRIM(RTRIM(TIPPESSOA)) as 'sponsorPersonType',  
   LTRIM(RTRIM(UPPER(CONCAT(ENDE.TIPO, ' ', ENDE.NOMEEND)))) AS 'sponsorAddress',
-  LTRIM(RTRIM(PAR.NUMEND)) as 'sponsorAddressNumber', 
+  ISNULL(LTRIM(RTRIM(PAR.NUMEND)),1) as 'sponsorAddressNumber', 
   LTRIM(RTRIM(BAI.NOMEBAI)) as 'sponsorNeighborhood', 
   LTRIM(RTRIM(CID.NOMECID)) as 'sponsorCity', 
   LTRIM(RTRIM(UFS.UF)) as 'sponsorState',
