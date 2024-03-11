@@ -88,12 +88,22 @@ let filtrar_dados = () => {
       serviceName: "DbExplorerSP.executeQuery",
       requestBody: {
         sql: `
-        SELECT DISTINCT FIN.NURENEG FROM AD_CANHOTOFTP FTP
-        LEFT JOIN TGFCAB CAB ON CAB.CHAVENFE = FTP.CHAVENFE
-        LEFT JOIN TGFFIN FIN ON CAB.NUNOTA = FIN.AD_NUNOTAFDIC
-        LEFT JOIN AD_WEBHOOKFIDIC FID ON FID.EXTERNAL_ID = FIN.NUFIN
-        WHERE FIN.CODEMP = 510 AND FIN.AD_FIDIC IS NOT NULL AND 
-        FIN.AD_FIDIC <> 'N'
+          SELECT DISTINCT FIN.NURENEG, AD_NUNOTAFDIC
+          FROM TGFFIN FIN
+          LEFT JOIN AD_REGENTITE ITE ON ITE.NUNOTA = FIN.AD_NUNOTAFDIC
+          LEFT JOIN TGFCAB CAB ON CAB.NUNOTA = FIN.AD_NUNOTAFDIC
+          LEFT JOIN AD_CANHOTOFTP FTP ON FTP.CHAVENFE = CAB.CHAVENFE
+          WHERE 
+          FIN.CODEMP = 510
+          AND 
+          FIN.AD_FIDIC = 'I' AND
+          AD_NUNOTAFDIC IS NOT NULL AND NURENEG IS NOT NULL
+          AND 
+          (
+          CANHOTONF IS NOT NULL 
+          OR 
+          FTP.CONTEUDO IS NOT NULL
+          )
         `,
       },
     }),
@@ -109,15 +119,15 @@ let filtrar_dados = () => {
 
         linha.forEach((li, index) => {
           setTimeout(() => {
-            console.log(`Integração nº ${index}, NU ${li[0]}`)
-            integracao(li[0]);      
-          }, 10000 * index)
+            console.log(`Integração nº ${index}, NU ${li[0]} - SKU ${li[1]}`);
+            integracao(li[0], li[1]);
+          }, 10000 * index);
         });
       } catch {}
     });
 };
 
-let integracao = (nureneg, res) => {
+let integracao = (nureneg, sku, res) => {
   console.log("Iniciando integração");
   fetch(url_consulta, {
     method: "POST",
@@ -160,12 +170,12 @@ let integracao = (nureneg, res) => {
 	INNER JOIN TGFCAB CAB ON FIN.AD_NUNOTAFDIC = CAB.NUNOTA
 	INNER JOIN TGFCAB CAB1 ON CAB1.NUNOTA = AD_NUNOTAFDIC
 	WHERE
-	REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'invoiceKey',
-  (SELECT COUNT(*) FROM TGFFIN WHERE NURENEG = 23557 AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'totalInstallments',
+	REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'invoiceKey',
+  (SELECT COUNT(*) FROM TGFFIN WHERE NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'totalInstallments',
   FIN.VLRDESDOB AS 'paymentValue',
   FIN.DTNEG AS 'paymentDate',
   FIN.NUFIN,
-  (SELECT SUM(VLRDESDOB) FROM TGFFIN WHERE NURENEG = 23557 AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'valorTotal',
+  (SELECT SUM(VLRDESDOB) FROM TGFFIN WHERE NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1) AS 'valorTotal',
   AD_NUNOTAFDIC AS 'NUNOTA',
   AD_SKUFIDIC,
   FIN.NUMNOTA,
@@ -179,7 +189,7 @@ INNER JOIN TGFCAB CAB ON FIN.AD_NUNOTAFDIC = CAB.NUNOTA
 INNER JOIN TGFCAB CAB1 ON CAB1.NUNOTA = AD_NUNOTAFDIC
 LEFT JOIN TGFNFE NFE ON NFE.NUNOTA = CAB1.NUNOTA
 WHERE
-REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
+REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
 (SELECT
   STRING_AGG(CAB1.NUNOTA, ',') AS notas
   FROM TGFFIN FIN
@@ -188,9 +198,9 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
   INNER JOIN TGFCAB CAB1 ON CAB1.NUNOTA = AD_NUNOTAFDIC
   LEFT JOIN TGFNFE NFE ON NFE.NUNOTA = CAB1.NUNOTA
   WHERE
-  REN.NURENEG = 23557) AS 'NUNOTA_ORIGINAL',
+  REN.NURENEG = ${nureneg}) AS 'NUNOTA_ORIGINAL',
   AD_VLRPRESFDIC,
-  FTP.CONTEUDO,
+  ISNULL(FTP.CONTEUDO, RITE.CANHOTONF)
   AD_OFFER_ID
   
   FROM TGFFIN FIN
@@ -209,10 +219,11 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
   LEFT JOIN TSIPAI PAI_EMP ON PAI_EMP.CODPAIS = UFS_EMP.CODPAIS
 
   INNER JOIN TGFCAB CAB ON CAB.NUNOTA = FIN.AD_NUNOTAFDIC
-  INNER JOIN AD_CANHOTOFTP FTP ON CAB.CHAVENFE = FTP.CHAVENFE
+  LEFT JOIN AD_CANHOTOFTP FTP ON CAB.CHAVENFE = FTP.CHAVENFE
+  LEFT JOIN AD_REGENTITE RITE ON RITE.NUNOTA = CAB.NUNOTA
   
   WHERE 
-  NURENEG = 23557 AND PARCRENEG IS NOT NULL AND RECDESP = 1
+  NURENEG = ${nureneg} AND PARCRENEG IS NOT NULL AND RECDESP = 1
   AND FIN.CODEMP = 510
         `,
       },
@@ -221,18 +232,23 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
     .then((resp) => resp.text())
     .then(function (datares) {
       let linha = "";
+
       try {
         datares = JSON.parse(datares);
         linha = datares.responseBody.rows;
 
-        let xmls = linha[0][34].split("§ç§");
-
         let base64_xml = [];
 
-        xmls.map((unitario, index) => {
-          // fs.createWriteStream('./download/arquivo' + index + '.xml').write(unitario);
-          base64_xml.push(btoa(unitario));
-        });
+        try {
+          let xmls = linha?.[0]?.[34].split("§ç§");
+          xmls.map((unitario, index) => {
+            // fs.createWriteStream('./download/arquivo' + index + '.xml').write(unitario);
+            base64_xml.push(btoa(unitario));
+          });
+        } catch (e) {
+          erros++;
+          log_erros.push(e);
+        }
 
         let itens = [];
 
@@ -295,9 +311,13 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
             .then(async function (blob) {
               let buffer = await blob.arrayBuffer();
               buffer = Buffer.from(buffer);
-              base64String = btoa(
-                String.fromCharCode(...new Uint8Array(buffer))
-              );
+              try {
+                base64String = btoa(
+                  String.fromCharCode(...new Uint8Array(buffer))
+                );
+              } catch {
+                base64String = undefined;
+              }
               rodar_loop(base64String);
             });
         };
@@ -387,10 +407,14 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
 
                   // return console.log(`${linha[0][35]}, ${linha[0][29]}`)
 
-                  let resposta1 = resposta.responseBody.rows[0][0];
-                  resposta = resposta.responseBody.rows[0][0];
+                  let resposta1 = resposta?.responseBody?.rows?.[0]?.[0];
+                  resposta = resposta?.responseBody?.rows?.[0]?.[0];
 
-                  resposta = Buffer.from(resposta, "hex").toString("base64");
+                  try {
+                    resposta = Buffer.from(resposta, "hex").toString("base64");
+                  } catch {
+                    resposta = "2tfwg35yhet46u4eh46u";
+                  }
 
                   body.files.push({
                     content: resposta,
@@ -399,12 +423,18 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                   });
 
                   body.files.push({
-                    content: linha[0][37],
+                    content: linha[0][37] || "2tfwg35yhet46u4eh46u",
                     category: "comprovante_assinatura",
                     name: `canhoto.pdf`,
                   });
 
-                  resposta1 = Buffer.from(resposta1, "hex").toString("base64");
+                  try {
+                    resposta1 = Buffer.from(resposta1, "hex").toString(
+                      "base64"
+                    );
+                  } catch {
+                    resposta1 = "2tfwg35yhet46u4eh46u";
+                  }
 
                   body.files.push({
                     content: resposta1,
@@ -422,7 +452,7 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                     });
                   });
 
-                  let nunota_pdf = linha[0][35].split(",");
+                  let nunota_pdf = linha?.[0]?.[35].split(",");
 
                   nunota_pdf.map((unico) => {
                     fetch(url_relat, {
@@ -504,9 +534,13 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                         .then(async function (blob) {
                           let buffer = await blob.arrayBuffer();
                           buffer = Buffer.from(buffer);
-                          base64String = btoa(
-                            String.fromCharCode(...new Uint8Array(buffer))
-                          );
+                          try {
+                            base64String = btoa(
+                              String.fromCharCode(...new Uint8Array(buffer))
+                            );
+                          } catch {
+                            base64String = undefined;
+                          }
 
                           body.files.push({
                             content: base64String,
@@ -519,7 +553,7 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
 
                   let url_ENVIO =
                     "https://hub.kanastra.com.br/api/credit-originators/fidc-medsystems/offers/" +
-                    linha[0][27];
+                    linha[0][29];
 
                   const str = JSON.stringify(body);
                   const filename = "input.txt";
@@ -564,62 +598,62 @@ REN.NURENEG = 23557 AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                       } else {
                         incluidos++;
 
-                        linha.map((unitario) => {
-                          let atualizaParceiro = {
-                            serviceName: "CRUDServiceProvider.saveRecord",
-                            requestBody: {
-                              dataSet: {
-                                rootEntity: "Financeiro",
-                                includePresentationFields: "N",
-                                dataRow: {
-                                  localFields: {
-                                    AD_FIDIC: {
-                                      $: "I",
-                                    },
-                                    AD_SKUFIDIC: {
-                                      $: resp.external_id,
-                                    },
-                                    AD_OFFER_ID: {
-                                      $: resp.id,
-                                    },
-                                  },
-                                  key: {
-                                    NUFIN: {
-                                      $: unitario[27],
-                                    },
-                                  },
-                                },
-                                entity: {
-                                  fieldset: {
-                                    list: "NUFIN, AD_FIDIC, AD_SKUFIDIC",
-                                  },
-                                },
-                              },
-                            },
-                          };
+                        // linha.map((unitario) => {
+                        //   let atualizaParceiro = {
+                        //     serviceName: "CRUDServiceProvider.saveRecord",
+                        //     requestBody: {
+                        //       dataSet: {
+                        //         rootEntity: "Financeiro",
+                        //         includePresentationFields: "N",
+                        //         dataRow: {
+                        //           localFields: {
+                        //             AD_FIDIC: {
+                        //               $: "I",
+                        //             },
+                        //             AD_SKUFIDIC: {
+                        //               $: resp.external_id,
+                        //             },
+                        //             AD_OFFER_ID: {
+                        //               $: resp.id,
+                        //             },
+                        //           },
+                        //           key: {
+                        //             NUFIN: {
+                        //               $: unitario[27],
+                        //             },
+                        //           },
+                        //         },
+                        //         entity: {
+                        //           fieldset: {
+                        //             list: "NUFIN, AD_FIDIC, AD_SKUFIDIC",
+                        //           },
+                        //         },
+                        //       },
+                        //     },
+                        //   };
 
-                          fetch(
-                            base +
-                              "/mge/service.sbr?serviceName=CRUDServiceProvider.saveRecord&outputType=json",
-                            {
-                              method: "POST",
-                              headers: {
-                                "Content-Type": "text/xml; charset=utf-8",
-                                Accept: "*/*",
-                                "Accept-Language": "en-GB",
-                                "Accept-Encoding": "gzip, deflate",
-                                Connection: "Keep-alive",
-                                "Content-Length": atualizaParceiro.length,
-                                Cookie: "JSESSIONID=" + jsonid,
-                              },
-                              body: JSON.stringify(atualizaParceiro),
-                            }
-                          )
-                            .then((resp) => resp.text())
-                            .then((resposta) => {
-                              console.log(resposta);
-                            });
-                        });
+                        //   fetch(
+                        //     base +
+                        //       "/mge/service.sbr?serviceName=CRUDServiceProvider.saveRecord&outputType=json",
+                        //     {
+                        //       method: "POST",
+                        //       headers: {
+                        //         "Content-Type": "text/xml; charset=utf-8",
+                        //         Accept: "*/*",
+                        //         "Accept-Language": "en-GB",
+                        //         "Accept-Encoding": "gzip, deflate",
+                        //         Connection: "Keep-alive",
+                        //         "Content-Length": atualizaParceiro.length,
+                        //         Cookie: "JSESSIONID=" + jsonid,
+                        //       },
+                        //       body: JSON.stringify(atualizaParceiro),
+                        //     }
+                        //   )
+                        //     .then((resp) => resp.text())
+                        //     .then((resposta) => {
+                        //       console.log(resposta);
+                        //     });
+                        // });
 
                         // res.json({ data: "OK" });
                       }

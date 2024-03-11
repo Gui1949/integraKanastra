@@ -554,9 +554,11 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                         .then(async function (blob) {
                           let buffer = await blob.arrayBuffer();
                           buffer = Buffer.from(buffer);
-                          base64String = btoa(
-                            String.fromCharCode(...new Uint8Array(buffer))
-                          );
+                          try {
+                            base64String = btoa(
+                              String.fromCharCode(...new Uint8Array(buffer))
+                            );
+                          } catch {}
 
                           body.items[0].files.push({
                             content: base64String,
