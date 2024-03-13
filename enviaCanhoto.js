@@ -28,7 +28,7 @@ async function downloadFiles() {
       },
     });
 
-    await client.cd("/Life_Canhoto");
+    await client.cd("/Life_Canhoto/Backup");
 
     const files = await client.list();
 
