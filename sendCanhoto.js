@@ -437,7 +437,7 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                   } else if (linha[0][37]) {
                     let verify = linha[0]?.[37]?.substring(0, 2);
 
-                    if (verify?.indexOf("9") > 1) {
+                    if (verify?.indexOf("9") >= 1) {
                       body.files.push({
                         content: linha[0][37],
                         category: "comprovante_assinatura",
@@ -633,6 +633,7 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                             console.log(err.message);
                           } else {
                             fs.write(fd, resp.offerId + " - " + nome +  "\n", (err, bytes) => {
+                            // fs.write(fd, linha[0][37] + "\n", (err, bytes) => {
                               if (err) {
                                 console.log(err.message);
                               } else {

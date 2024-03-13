@@ -192,7 +192,8 @@ async function downloadFiles() {
             return resolve;
           }
         ).catch((e) => {
-          return console.log('ERRO - ARQUIVO CORROMPIDO')
+          console.log(`${file.name} - ERRO: ARQUIVO CORROMPIDO`)
+          log_erros.push(`${file.name} - ERRO: ARQUIVO CORROMPIDO`)
         })
       }
       else{
