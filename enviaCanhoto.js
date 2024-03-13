@@ -1,6 +1,6 @@
 const fs = require("fs");
-const path = require("path");
 const ftp = require("basic-ftp");
+const pdf2pic = require("pdf2pic");
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
@@ -28,7 +28,7 @@ async function downloadFiles() {
       },
     });
 
-    await client.cd("/Life_Canhoto");
+    await client.cd("/Life_Canhoto/Backup");
 
     const files = await client.list();
 
@@ -48,83 +48,54 @@ async function downloadFiles() {
       await client.downloadTo(localFilePath, remoteFilePath);
       console.log(`Downloaded: ${file.name}`);
 
-      const base64Pdf = fs.readFileSync(`./downloaded_files/${file.name}`, {
-        encoding: "base64",
-      });
+      const options = {
+        density: 100,
+        saveFilename: file.name,
+        savePath: "./converted_files",
+        format: "png",
+        width: 600,
+        height: 600,
+      };
+      const convert = pdf2pic.fromPath(
+        `./downloaded_files/${file.name}`,
+        options
+      );
+      const pageToConvertAsImage = 1;
 
-      const login_snk = () => {
-        let credentials = {
-          username: "INTEGRA.EVUP",
-          password: "Med@sys22",
-        };
+      if (file.name != ".pdf") {
+        convert(pageToConvertAsImage, { responseType: "image" }).then(
+          (resolve) => {
+            console.log("Page 1 is now converted as image");
 
-        const base = "http://10.10.10.6:8180";
-
-        // Define the URL for the login service
-        const url = base + "/mge/service.sbr?serviceName=MobileLoginSP.login";
-
-        // Construct the request body in the format required by the service
-        let content =
-          '<serviceRequest serviceName="MobileLoginSP.login"><requestBody><NOMUSU>' +
-          credentials.username +
-          "</NOMUSU><INTERNO>" +
-          credentials.password +
-          "</INTERNO></requestBody></serviceRequest>";
-
-        // Send a POST request to the service with the appropriate headers and request body
-        fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "text/xml; charset=utf-8",
-            Accept: "*/*",
-            "Accept-Language": "en-GB",
-            "Accept-Encoding": "gzip, deflate",
-            Connection: "Keep-alive",
-            "Content-Length": content.length,
-          },
-          body: content,
-        })
-          .then((resp) => resp.text()) // Extract the response body as text
-          .then(function (data) {
-            // Log the response data for debugging purposes
-
-            // Find the start and end indices of the jsessionid element in the response body
-            let find_jsonid_ini = data.search("<jsessionid>");
-            let find_jsonid_fi = data.search("</jsessionid>");
-
-            // Extract the jsessionid value from the response body
-            jsonid = data.slice(find_jsonid_ini, find_jsonid_fi);
-            jsonid = jsonid.replace("<jsessionid>", "");
-
-            let criaRegistro = {
-              serviceName: "CRUDServiceProvider.saveRecord",
-              requestBody: {
-                dataSet: {
-                  rootEntity: "AD_CANHOTOFTP",
-                  includePresentationFields: "N",
-                  dataRow: {
-                    localFields: {
-                      CONTEUDO: {
-                        $: base64Pdf,
-                      },
-                      CHAVENFE: {
-                        $: file.name.replace(".pdf", "").replace(" ", ""),
-                      },
-                    },
-                  },
-                  entity: {
-                    fieldset: {
-                      list: "ID",
-                    },
-                  },
-                },
-              },
-            };
-
-            fetch(
-              base +
-                "/mge/service.sbr?serviceName=CRUDServiceProvider.saveRecord&outputType=json",
+            const base64Pdf = fs.readFileSync(
+              `./converted_files/${file.name} + .png`,
               {
+                encoding: "base64",
+              }
+            );
+
+            const login_snk = () => {
+              let credentials = {
+                username: "INTEGRA.EVUP",
+                password: "Med@sys22",
+              };
+
+              const base = "http://10.10.10.6:8180";
+
+              // Define the URL for the login service
+              const url =
+                base + "/mge/service.sbr?serviceName=MobileLoginSP.login";
+
+              // Construct the request body in the format required by the service
+              let content =
+                '<serviceRequest serviceName="MobileLoginSP.login"><requestBody><NOMUSU>' +
+                credentials.username +
+                "</NOMUSU><INTERNO>" +
+                credentials.password +
+                "</INTERNO></requestBody></serviceRequest>";
+
+              // Send a POST request to the service with the appropriate headers and request body
+              fetch(url, {
                 method: "POST",
                 headers: {
                   "Content-Type": "text/xml; charset=utf-8",
@@ -132,35 +103,96 @@ async function downloadFiles() {
                   "Accept-Language": "en-GB",
                   "Accept-Encoding": "gzip, deflate",
                   Connection: "Keep-alive",
-                  Cookie: "JSESSIONID=" + jsonid,
+                  "Content-Length": content.length,
                 },
-                body: JSON.stringify(criaRegistro),
-              }
-            )
-              .then((resp) => resp.text())
-              .then((resposta) => {
-                console.log(resposta);
+                body: content,
+              })
+                .then((resp) => resp.text()) // Extract the response body as text
+                .then(function (data) {
+                  // Log the response data for debugging purposes
 
-                if (resposta.tsError) {
-                  log_erros.push(
-                    "Nº Financeiro: " +
-                      +file.name.replace(".pdf", "") +
-                      " - " +
-                      resposta.statusMessage
-                  );
-                  erros++;
-                }
+                  // Find the start and end indices of the jsessionid element in the response body
+                  let find_jsonid_ini = data.search("<jsessionid>");
+                  let find_jsonid_fi = data.search("</jsessionid>");
 
-                incluidos++;
+                  // Extract the jsessionid value from the response body
+                  jsonid = data.slice(find_jsonid_ini, find_jsonid_fi);
+                  jsonid = jsonid.replace("<jsessionid>", "");
 
-                fs.unlinkSync(`./downloaded_files/${file.name}`);
-              });
+                  let criaRegistro = {
+                    serviceName: "CRUDServiceProvider.saveRecord",
+                    requestBody: {
+                      dataSet: {
+                        rootEntity: "AD_CANHOTOFTP",
+                        includePresentationFields: "N",
+                        dataRow: {
+                          localFields: {
+                            CONTEUDO: {
+                              $: base64Pdf,
+                            },
+                            CHAVENFE: {
+                              $: file.name
+                                .replaceAll(".pdf", "")
+                                .replaceAll(" ", "")
+                                .replaceAll(".png", "")
+                                .replaceAll(".jpg", ""),
+                            },
+                          },
+                        },
+                        entity: {
+                          fieldset: {
+                            list: "ID",
+                          },
+                        },
+                      },
+                    },
+                  };
 
-            // Send a JSON response to the client with the jsessionid value
-          });
-      };
+                  fetch(
+                    base +
+                      "/mge/service.sbr?serviceName=CRUDServiceProvider.saveRecord&outputType=json",
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "text/xml; charset=utf-8",
+                        Accept: "*/*",
+                        "Accept-Language": "en-GB",
+                        "Accept-Encoding": "gzip, deflate",
+                        Connection: "Keep-alive",
+                        Cookie: "JSESSIONID=" + jsonid,
+                      },
+                      body: JSON.stringify(criaRegistro),
+                    }
+                  )
+                    .then((resp) => resp.text())
+                    .then((resposta) => {
+                      console.log(resposta);
 
-      login_snk();
+                      if (resposta.tsError) {
+                        log_erros.push(
+                          "Nº Financeiro: " +
+                            +file.name.replace(".pdf", "") +
+                            " - " +
+                            resposta.statusMessage
+                        );
+                        erros++;
+                      }
+
+                      incluidos++;
+
+                      fs.unlinkSync(`./downloaded_files/${file.name}`);
+                    });
+
+                  // Send a JSON response to the client with the jsessionid value
+                });
+            };
+
+            login_snk();
+
+            return resolve;
+          }
+        );
+      }
     }
   } catch (err) {
     console.error(err);

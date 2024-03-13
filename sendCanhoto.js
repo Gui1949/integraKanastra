@@ -88,22 +88,22 @@ let filtrar_dados = () => {
       serviceName: "DbExplorerSP.executeQuery",
       requestBody: {
         sql: `
-          SELECT DISTINCT FIN.NURENEG, AD_NUNOTAFDIC
-          FROM TGFFIN FIN
-          LEFT JOIN AD_REGENTITE ITE ON ITE.NUNOTA = FIN.AD_NUNOTAFDIC
-          LEFT JOIN TGFCAB CAB ON CAB.NUNOTA = FIN.AD_NUNOTAFDIC
-          LEFT JOIN AD_CANHOTOFTP FTP ON FTP.CHAVENFE = CAB.CHAVENFE
-          WHERE 
-          FIN.CODEMP = 510
-          AND 
-          FIN.AD_FIDIC = 'I' AND
-          AD_NUNOTAFDIC IS NOT NULL AND NURENEG IS NOT NULL
-          AND 
-          (
-          CANHOTONF IS NOT NULL 
-          OR 
-          FTP.CONTEUDO IS NOT NULL
-          )
+        SELECT DISTINCT FIN.NURENEG, AD_NUNOTAFDIC
+        FROM TGFFIN FIN
+        LEFT JOIN AD_REGENTITE ITE ON ITE.NUNOTA = FIN.AD_NUNOTAFDIC
+        LEFT JOIN TGFCAB CAB ON CAB.NUNOTA = FIN.AD_NUNOTAFDIC
+        LEFT JOIN AD_CANHOTOFTP FTP ON FTP.CHAVENFE = CAB.CHAVENFE
+        WHERE 
+        FIN.CODEMP = 510
+        AND 
+        FIN.AD_FIDIC = 'I' AND
+        AD_NUNOTAFDIC IS NOT NULL AND NURENEG IS NOT NULL
+        AND 
+        (
+-- CANHOTONF IS NOT NULL 
+--          OR 
+        (FTP.CONTEUDO IS NOT NULL AND FTP.CHAVENFE IS NOT NULL)
+        )
         `,
       },
     }),
@@ -200,8 +200,10 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
   WHERE
   REN.NURENEG = ${nureneg}) AS 'NUNOTA_ORIGINAL',
   AD_VLRPRESFDIC,
-  ISNULL(FTP.CONTEUDO, RITE.CANHOTONF)
-  AD_OFFER_ID
+  FTP.CONTEUDO, 
+  RITE.CANHOTONF,
+  AD_OFFER_ID,
+  FTP.CHAVENFE
   
   FROM TGFFIN FIN
   LEFT JOIN TGFPAR PAR ON PAR.CODPARC = FIN.CODPARC
@@ -412,36 +414,62 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
 
                   try {
                     resposta = Buffer.from(resposta, "hex").toString("base64");
-                  } catch {
-                    resposta = "2tfwg35yhet46u4eh46u";
+                    body.files.push({
+                      content: resposta,
+                      category: "dossie",
+                      name: `serasa.pdf`,
+                    });
+                  } catch (e) {
+                    erros++;
+                    log_erros.push(e);
                   }
 
-                  body.files.push({
-                    content: resposta,
-                    category: "dossie",
-                    name: `serasa.pdf`,
-                  });
+                  let nome
 
-                  body.files.push({
-                    content: linha[0][37] || "2tfwg35yhet46u4eh46u",
-                    category: "comprovante_assinatura",
-                    name: `canhoto.pdf`,
-                  });
+                  if (linha[0][38]) {
+                    body.files.push({
+                      content: linha[0][38],
+                      category: "comprovante_assinatura",
+                      name: `canhoto.png`,
+                    });
+
+                    nome = `canhoto.png`
+                  } else if (linha[0][37]) {
+                    let verify = linha[0]?.[37]?.substring(0, 2);
+
+                    if (verify?.indexOf("9") > 1) {
+                      body.files.push({
+                        content: linha[0][37],
+                        category: "comprovante_assinatura",
+                        name: `canhoto.png`,
+                      });
+
+                      nome = `canhoto.png`
+                    } else {
+                      body.files.push({
+                        content: linha[0][37],
+                        category: "comprovante_assinatura",
+                        name: `canhoto.pdf`,
+                      });
+
+                      nome = `canhoto.pdf`
+                    }
+                  }
 
                   try {
                     resposta1 = Buffer.from(resposta1, "hex").toString(
                       "base64"
                     );
-                  } catch {
-                    resposta1 = "2tfwg35yhet46u4eh46u";
+
+                    body.files.push({
+                      content: resposta1,
+                      category: "contrato_compra",
+                      name: `aceite.pdf`,
+                    });
+                  } catch (e) {
+                    erros++;
+                    log_erros.push(e);
                   }
-
-                  body.files.push({
-                    content: resposta1,
-                    category: "contrato_compra",
-                    name: `aceite.pdf`,
-                  });
-
                   //TODO: Puxar todas as danfe/nfse, usando um campo igual o invoiceKey, só que com o NUNOTAFDIC
 
                   base64_xml.map((unitario, index) => {
@@ -555,22 +583,22 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                     "https://hub.kanastra.com.br/api/credit-originators/fidc-medsystems/offers/" +
                     linha[0][29];
 
-                  const str = JSON.stringify(body);
-                  const filename = "input.txt";
+                  // const str = JSON.stringify(body);
+                  // const filename = "input.txt";
 
-                  fs.open(filename, "a", (err, fd) => {
-                    if (err) {
-                      console.log(err.message);
-                    } else {
-                      fs.write(fd, str, (err, bytes) => {
-                        if (err) {
-                          console.log(err.message);
-                        } else {
-                          console.log(bytes + " bytes written");
-                        }
-                      });
-                    }
-                  });
+                  // fs.open(filename, "a", (err, fd) => {
+                  //   if (err) {
+                  //     console.log(err.message);
+                  //   } else {
+                  //     fs.write(fd, str, (err, bytes) => {
+                  //       if (err) {
+                  //         console.log(err.message);
+                  //       } else {
+                  //         console.log(bytes + " bytes written");
+                  //       }
+                  //     });
+                  //   }
+                  // });
 
                   fetch(url_ENVIO, {
                     method: "PATCH",
@@ -597,6 +625,22 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                         res.json({ data: resp.error });
                       } else {
                         incluidos++;
+
+                        const filename = "input.txt";
+
+                        fs.open(filename, "a", (err, fd) => {
+                          if (err) {
+                            console.log(err.message);
+                          } else {
+                            fs.write(fd, resp.offerId + " - " + nome +  "\n", (err, bytes) => {
+                              if (err) {
+                                console.log(err.message);
+                              } else {
+                                console.log(bytes + " bytes written");
+                              }
+                            });
+                          }
+                        });
 
                         // linha.map((unitario) => {
                         //   let atualizaParceiro = {
