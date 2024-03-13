@@ -134,7 +134,7 @@ async function downloadFiles() {
                               $: file.name
                                 .replaceAll(".pdf", "")
                                 .replaceAll(" ", "")
-                                .replaceAll(".png", "")
+                                .replaceAll(".1.png", "")
                                 .replaceAll(".jpg", ""),
                             },
                           },
