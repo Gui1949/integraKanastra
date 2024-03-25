@@ -310,7 +310,7 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
         let rodar_loop = (base64String) => {
           linha.map((unico, index) => {
 
-            let date = linha[0][22];
+            let date = unico[22];
             const year = date.slice(4, 8);
             const mouth = date.slice(2, 4);
             const day = date.slice(0, 2);
@@ -371,10 +371,10 @@ REN.NURENEG = ${nureneg} AND CAB.CHAVENFE IS NOT NULL) AS 'XML',
                 sponsorZipCode: linha[0][9],
                 sellerName: linha[0][10],
                 sellerBank: 341,
-                sellerAgency: 81,
-                sellerAgencyDigit: 0,
-                sellerAccount: 89269,
-                sellerAccountDigit: 7,
+                sellerAgency: '81',
+                sellerAgencyDigit: '0',
+                sellerAccount: '89269',
+                sellerAccountDigit: '7',
                 sellerGovernmentId: linha[0][11],
                 sellerPersonType: linha[0][12],
                 sellerAddress: linha[0][13],
