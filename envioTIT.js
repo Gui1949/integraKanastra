@@ -15,7 +15,7 @@ let incluidos = 0;
 let erros = 0;
 let log_erros = [];
 
-let base = "http://10.10.10.6:8180";
+let base = "https://gestao.medsystems.com.br";
 let base64String;
 let jsonid;
 let url_consulta =
